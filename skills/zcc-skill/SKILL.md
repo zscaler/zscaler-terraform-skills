@@ -4,7 +4,7 @@ description: Use when writing, reviewing, or debugging Terraform HCL that uses t
 license: MIT
 metadata:
   author: Zscaler
-  version: 0.2.0
+  version: 0.2.1
 ---
 
 # Zscaler Client Connector (ZCC) Skill
