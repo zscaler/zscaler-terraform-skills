@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format is b
 
 Releases are produced automatically by [semantic-release](https://github.com/semantic-release/semantic-release) on every merge to `master` from [conventional commit](https://www.conventionalcommits.org/) messages.
 
+## [0.1.3](https://github.com/zscaler/zscaler-terraform-skills/compare/v0.1.2...v0.1.3) (2026-04-24)
+
+### Bug Fixes
+
+* Removed module directory and skills update ([#3](https://github.com/zscaler/zscaler-terraform-skills/issues/3)) ([5b9635a](https://github.com/zscaler/zscaler-terraform-skills/commit/5b9635ac145b43c7dc5e0f597aee567cbdbbd9e7))
+
 ## [0.1.2](https://github.com/zscaler/zscaler-terraform-skills/compare/v0.1.1...v0.1.2) (2026-04-24)
 
 ### Bug Fixes

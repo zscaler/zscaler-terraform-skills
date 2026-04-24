@@ -4,7 +4,7 @@ description: Use when designing the structure, CI/CD, state organization, testin
 license: MIT
 metadata:
   author: Zscaler
-  version: 0.1.2
+  version: 0.1.3
 ---
 
 # Zscaler Terraform — Best Practices Skill
