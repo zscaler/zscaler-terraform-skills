@@ -21,13 +21,13 @@ zscaler-terraform-skills/
 ├── gemini-extension.json              # Gemini CLI extension manifest (auto-discovers skills/)
 ├── GEMINI.md                          # contextFileName for the Gemini extension
 ├── skills/
-│   ├── zpa/
+│   ├── zpa-skill/
 │   │   ├── SKILL.md                   # Router — < 300 lines
 │   │   └── references/                # On-demand depth — auth, resource catalog, policies, troubleshooting, recent-provider-changes
-│   ├── zia/{SKILL.md,references/}
-│   ├── ztc/{SKILL.md,references/}
-│   ├── zcc/{SKILL.md,references/}
-│   └── best-practices/
+│   ├── zia-skill/{SKILL.md,references/}
+│   ├── ztc-skill/{SKILL.md,references/}
+│   ├── zcc-skill/{SKILL.md,references/}
+│   └── best-practices-skill/
 │       ├── SKILL.md
 │       └── references/                # state, ci-cd, security, testing, module patterns, naming, variables, versioning, anti-patterns, quick-ref
 ├── scripts/
@@ -46,6 +46,8 @@ zscaler-terraform-skills/
 
 `marketplace.json` declares **one plugin**, source `./`. Claude Code, Cursor, Gemini CLI, and any other skill-aware host auto-discover every `skills/<name>/SKILL.md` underneath — each becomes its own activatable skill.
 
+**Directory naming rule (required by the [agentskills.io spec](https://agentskills.io/specification)):** the directory name MUST equal the SKILL.md `name:` value. Five skills today, so five directories: `skills/zpa-skill/`, `skills/zia-skill/`, `skills/ztc-skill/`, `skills/zcc-skill/`, `skills/best-practices-skill/`. `make spec-check` (CI gate) fails the PR if this drifts. Renaming a directory implies renaming its `name:` field, which is **breaking** for `gh skill install … <name> --pin v…` users — use `feat!:`.
+
 ## Distribution channels
 
 This one repo ships through five installer surfaces. **Any change to `marketplace.json`, `gemini-extension.json`, a `SKILL.md` `name:`/`description:`, or a top-level reference anchor potentially affects all five.** Don't rename without checking.
@@ -57,6 +59,8 @@ This one repo ships through five installer surfaces. **Any change to `marketplac
 | GitHub CLI | `skills/*/SKILL.md` (frontmatter `name:`) + git tags | `gh skill install zscaler/zscaler-terraform-skills [skill-name] [--pin v0.x.y]` |
 | `npx skills` (cross-agent) | `skills/*/SKILL.md` | `npx skills add <repo>` |
 | Manual clone | `skills/*/SKILL.md` | `git clone <repo> ~/.cursor/skills/...` (Cursor, etc.) |
+
+`gh skill publish` is **not** part of the release pipeline — semantic-release handles tagging and GitHub releases. We use `gh skill publish --dry-run` (wrapped as `make spec-check`, run in CI) only to validate spec compliance. Never run `gh skill publish` (without `--dry-run`) against this repo or it will create a duplicate release that fights semantic-release.
 
 ## Authoring rules — LLM consumption
 
@@ -159,6 +163,7 @@ make check-frontmatter   # YAML frontmatter shape + required keys
 make check-links         # all internal references/*.md links resolve
 make check-line-counts   # warn if any SKILL.md exceeds the 300-line budget
 make check-versions      # marketplace.json + gemini-extension.json + every SKILL.md agree
+make spec-check          # 'gh skill publish --dry-run' — agentskills.io spec compliance (requires gh >= 2.90.0)
 make line-counts         # print line counts for SKILL.md + every reference file
 make lint                # markdownlint against .markdownlint.json
 make lint-fix            # auto-fix every issue markdownlint can fix
@@ -170,6 +175,7 @@ Markdown style is enforced by `markdownlint-cli` against `.markdownlint.json` (i
 ## PR checklist
 
 - [ ] `make validate` passes locally
+- [ ] `make spec-check` passes locally (skill name == directory name; required frontmatter; no install metadata)
 - [ ] Decision table precedes playbook (if multiple approaches exist)
 - [ ] No "Why this matters" / "Note that…" prose — converted to ❌/✅
 - [ ] Every code block / table adds a fact not in surrounding prose

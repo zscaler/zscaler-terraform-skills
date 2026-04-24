@@ -10,7 +10,7 @@ SKILLS  := $(wildcard skills/*/SKILL.md)
 .PHONY: help validate check check-versions \
         check-frontmatter check-links check-line-counts \
         line-counts fmt lint lint-fix \
-        release-dry clean
+        spec-check release-dry clean
 
 help:
 	@printf "$(COLOR_ZSCALER)"
@@ -31,7 +31,8 @@ help:
 	@printf "$(COLOR_OK)  check-frontmatter$(COLOR_NONE)   Validate YAML frontmatter in every SKILL.md\n"
 	@printf "$(COLOR_OK)  check-links$(COLOR_NONE)         Verify all internal references/*.md links resolve\n"
 	@printf "$(COLOR_OK)  check-line-counts$(COLOR_NONE)   Warn if any SKILL.md exceeds 300 lines (token budget)\n"
-	@printf "$(COLOR_OK)  check-versions$(COLOR_NONE)      Verify marketplace.json + every SKILL.md agree on version\n"
+	@printf "$(COLOR_OK)  check-versions$(COLOR_NONE)      Verify marketplace.json + gemini-extension.json + every SKILL.md agree on version\n"
+	@printf "$(COLOR_OK)  spec-check$(COLOR_NONE)          Validate every skill against the agentskills.io spec via 'gh skill publish --dry-run'\n"
 	@printf "$(COLOR_OK)  line-counts$(COLOR_NONE)         Show line counts for every SKILL.md and reference file\n"
 	@echo ""
 	@printf "$(COLOR_WARNING)Release$(COLOR_NONE)  (production releases run automatically on merge to master)\n"
@@ -88,6 +89,19 @@ check-line-counts:
 	  fi; \
 	done; \
 	exit $$failed
+
+# -------- agentskills.io spec compliance --------
+
+# Validates every skills/*/SKILL.md against the agentskills.io spec without publishing.
+# Requires gh >= 2.90.0 (the version that introduced `gh skill`). Never runs the
+# publish phase — releases come exclusively from semantic-release on merge to master.
+spec-check:
+	@if ! command -v gh >/dev/null 2>&1; then \
+	  printf "$(COLOR_WARNING)gh CLI not installed.$(COLOR_NONE) Install: brew install gh (need >= 2.90.0)\n"; \
+	  exit 1; \
+	fi
+	@printf "$(COLOR_WARNING)gh skill spec validation (dry-run, no publish):$(COLOR_NONE)\n"
+	@gh skill publish --dry-run
 
 # -------- release preview --------
 
