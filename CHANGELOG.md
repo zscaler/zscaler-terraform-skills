@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format is b
 
 Releases are produced automatically by [semantic-release](https://github.com/semantic-release/semantic-release) on every merge to `master` from [conventional commit](https://www.conventionalcommits.org/) messages.
 
+## [0.1.2](https://github.com/zscaler/zscaler-terraform-skills/compare/v0.1.1...v0.1.2) (2026-04-24)
+
+### Bug Fixes
+
+* Added Gemini Extension and README ([#2](https://github.com/zscaler/zscaler-terraform-skills/issues/2)) ([7285486](https://github.com/zscaler/zscaler-terraform-skills/commit/7285486f1c9b1da5ed17be5bf9dc667d1620dcc2))
+
 ## [0.1.1](https://github.com/zscaler/zscaler-terraform-skills/compare/v0.1.0...v0.1.1) (2026-04-24)
 
 ### Bug Fixes
