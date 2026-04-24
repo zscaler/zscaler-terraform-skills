@@ -18,7 +18,7 @@ HCL style, locals, looping, dynamic blocks, validation. Generic Terraform style 
 - ❌ `count = length(var.applications)` over a list of names — removing the middle entry shifts every downstream address.
 - ❌ `for_each` over a value that's unknown at plan time (output of another resource that produces a computed list). Refactor to use a map keyed on inputs you do know.
 - ❌ `dynamic` block where the block is always present exactly once.
-- ❌ Hardcoded resource IDs (`segment_group_id = "72058304855457833"`). Use a data source or accept as a variable.
+- ❌ Hardcoded resource IDs (`segment_group_id = "99999999999999999"`). Use a data source or accept as a variable.
 - ✅ `for_each = { for x in var.servers : x.name => x }` to convert a list to a map for stable addressing.
 - ✅ `count = var.create_optional_resource ? 1 : 0` for the on/off toggle. Reference as `resource.foo.this[0].id` with a `try()` if conditional.
 
