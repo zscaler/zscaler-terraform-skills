@@ -1,10 +1,20 @@
 # Zscaler Terraform Skills
 
-[![Agent Skill](https://img.shields.io/badge/Agent-Skill-5865F2)](https://agentskills.io)
-[![Terraform](https://img.shields.io/badge/Terraform-1.6+-623CE4)](https://www.terraform.io/)
-[![OpenTofu](https://img.shields.io/badge/OpenTofu-1.6+-FFD814)](https://opentofu.org/)
-[![License](https://img.shields.io/github/license/zscaler/terraform-provider-zpa?color=blue)](https://github.com/zscaler/terraform-provider-zpa/v2/blob/master/LICENSE)
-[![Zscaler Community](https://img.shields.io/badge/zscaler-community-blue)](https://community.zscaler.com/)
+<p align="center">
+  <a href="https://www.terraform.io/">
+    <img src="https://cdn.simpleicons.org/terraform/623CE4" alt="Terraform" height="60">
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.zscaler.com/">
+    <img src="https://cdn.simpleicons.org/zscaler/00BCEB" alt="Zscaler" height="60">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Agent-Skill-5865F2" alt="Agent Skill"></a>
+  <a href="https://www.terraform.io/"><img src="https://img.shields.io/badge/Terraform-1.6+-623CE4" alt="Terraform"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
+</p>
 
 A bundle of agent skills that teach AI coding assistants (Claude Code, Cursor, Copilot, Gemini CLI, OpenCode, Codex, …) how to design and write correct Terraform HCL for the Zscaler providers. Five skills ship in this bundle:
 
@@ -224,7 +234,7 @@ Each provider skill ships a `SKILL.md` router plus a focused set of references:
 
 ### Testing strategy
 
-A three-layer pyramid documented in `skills/best-practices/references/testing-and-validation.md`:
+A three-layer pyramid documented in `skills/best-practices-skill/references/testing-and-validation.md`:
 
 | Layer | File | Terraform | Credentials | What it verifies |
 |-------|------|-----------|-------------|------------------|
@@ -236,7 +246,7 @@ The skill also covers when `terraform test` is enough vs when Terratest (Go) mak
 
 ### CI/CD workflows
 
-`skills/best-practices/references/ci-cd-zscaler.md` covers Zscaler-specific CI patterns that generic Terraform CI templates miss:
+`skills/best-practices-skill/references/ci-cd-zscaler.md` covers Zscaler-specific CI patterns that generic Terraform CI templates miss:
 
 - **The activation step.** ZIA and ZTC require an explicit activation API call after every successful apply or the configuration sits inactive on the tenant. The reference shows how to wire it into both GitHub Actions and GitLab CI.
 - **OIDC against Zidentity** as a replacement for long-lived OneAPI client secrets in CI runners.
@@ -245,7 +255,7 @@ The skill also covers when `terraform test` is enough vs when Terratest (Go) mak
 
 ### State management
 
-`skills/best-practices/references/state-management.md` covers state organization scaled to Zscaler estates:
+`skills/best-practices-skill/references/state-management.md` covers state organization scaled to Zscaler estates:
 
 - Per-microtenant state files vs single state with `for_each` over microtenants
 - Splitting state across `zpa-platform / zpa-policies / zia-policies / ztc-rules` for blast-radius isolation
@@ -254,7 +264,7 @@ The skill also covers when `terraform test` is enough vs when Terratest (Go) mak
 
 ### Security & secrets
 
-`skills/best-practices/references/security-and-compliance.md` covers:
+`skills/best-practices-skill/references/security-and-compliance.md` covers:
 
 - OneAPI client rotation strategy and per-environment scoping
 - The `ZSCALER_*` vs `<product>_*` env-var trap (most common ZCC / ZPA auth confusion)
@@ -274,7 +284,7 @@ The skill also covers when `terraform test` is enough vs when Terratest (Go) mak
 
 **Sources:**
 
-- The four published Zscaler provider repos: [`terraform-provider-zpa`](https://github.com/zscaler/terraform-provider-zpa), [`terraform-provider-zia`](https://github.com/zscaler/terraform-provider-zia), [`terraform-provider-ztc`](https://github.com/zscaler/terraform-provider-ztc), [`terraform-provider-zcc`](https://github.com/zscaler/terraform-provider-zcc)
+- The four published Zscaler provider repos: [`terraform-provider-zpa`](https://github.com/zscaler/terraform-provider-zpa), [`terraform-provider-zia`](https://github.com/zscaler/terraform-provider-zia), [`terraform-provider-ztc`](https://github.com/zscaler/terraform-provider-ztc), `terraform-provider-zcc`
 - De-identified customer support patterns from real Zscaler-Terraform engagements
 - Engineering discipline patterns from [terraform-best-practices.com](https://www.terraform-best-practices.com/) adapted to Zscaler API granularity
 
@@ -305,12 +315,15 @@ make validate          # Run every check below in one go (mirrors CI)
 make check-frontmatter # Validate YAML frontmatter in every SKILL.md
 make check-links       # Verify every internal references/*.md link resolves
 make check-line-counts # Warn if any SKILL.md exceeds the 300-line budget
-make check-versions    # Verify marketplace.json and every SKILL.md agree
+make check-versions    # Verify marketplace.json + gemini-extension.json + every SKILL.md agree
+make spec-check        # Validate every skill against the agentskills.io spec via 'gh skill publish --dry-run' (gh >= 2.90.0)
 make line-counts       # Print line counts for every SKILL.md and reference
 make lint              # Lint all markdown via markdownlint (uses .markdownlint.json)
 make lint-fix          # Auto-fix every issue markdownlint can fix
 make release-dry       # Preview what semantic-release would publish next (no writes)
 ```
+
+`make spec-check` wraps `gh skill publish --dry-run` — it validates the same rules `gh skill publish` would enforce (skill name == directory name, required frontmatter present, no install metadata committed) **without ever creating a release**. Releases are owned exclusively by semantic-release; never run `gh skill publish` (without `--dry-run`) against this repo.
 
 Markdown style is enforced by [`markdownlint-cli`](https://github.com/igorshubovych/markdownlint-cli) against the rules in `.markdownlint.json`. Install once with `npm install -g markdownlint-cli`. CI runs the same check on every PR via `DavidAnson/markdownlint-cli2-action`.
 

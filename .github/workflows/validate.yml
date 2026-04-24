@@ -145,3 +145,21 @@ jobs:
             cd - >/dev/null
           done
           exit $fail
+
+  spec:
+    name: agentskills.io spec compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate every skill against the agentskills.io spec
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh --version
+          # gh skill landed in v2.90.0; fail loudly if the runner is older.
+          gh skill --help >/dev/null 2>&1 || {
+            echo "::error::gh CLI on this runner does not support 'gh skill' (need >= 2.90.0). Upgrade the actions/runner image."
+            exit 1
+          }
+          gh skill publish --dry-run

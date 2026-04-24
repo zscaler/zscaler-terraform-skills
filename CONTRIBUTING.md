@@ -16,12 +16,11 @@ Read [CLAUDE.md](CLAUDE.md) before writing content. The "Authoring rules — LLM
 
 ## Workflow
 
-1. Pick the affected skill folder (`skills/zpa/`, `skills/zia/`, `skills/ztc/`, `skills/zcc/`).
+1. Pick the affected skill folder (`skills/zpa-skill/`, `skills/zia-skill/`, `skills/ztc-skill/`, `skills/zcc-skill/`, `skills/best-practices-skill/`).
 2. Edit `SKILL.md` (router) or a `references/*.md` (depth).
-3. Bump `metadata.version` in the affected `SKILL.md` and in `.claude-plugin/marketplace.json` (root + plugin entry).
-4. Run the local validation commands listed in `CLAUDE.md`.
-5. If you changed observable behaviour for an existing scenario, update `tests/baseline-scenarios.md`.
-6. Open a PR.
+3. Run `make validate` (and `make spec-check` if `gh ≥ 2.90.0` is installed) — see `CLAUDE.md` for the full validator list.
+4. If you changed observable behaviour for an existing scenario, update `tests/baseline-scenarios.md`.
+5. Open a PR with a [conventional commit](https://www.conventionalcommits.org/) subject (`feat:` / `fix:` / `docs:` / `chore:`) — semantic-release picks the version bump on merge. **Do not edit version numbers by hand.**
 
 ## Source of truth
 

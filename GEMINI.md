@@ -8,11 +8,11 @@ Pick the skill whose `description:` matches the request. Most prompts trigger ex
 
 | Trigger phrase in user request | Skill |
 |--------------------------------|-------|
-| "ZPA", "private access", `zpa_*` resources, application segments, segment groups, app connector groups, ZPA policy access rules, microtenants | `skills/zpa/SKILL.md` |
-| "ZIA", "internet access", `zia_*` resources, URL filtering, firewall, DLP, SSL inspection, sandbox, cloud app control | `skills/zia/SKILL.md` |
-| "ZTC", "Cloud Branch Connector", `ztc_*` resources, edge connector groups, traffic forwarding rules, ZIA forwarding gateways | `skills/ztc/SKILL.md` |
-| "ZCC", "Client Connector", `zcc_*` resources, trusted networks, forwarding profiles, failopen policy, web app service | `skills/zcc/SKILL.md` |
-| State organization, multi-tenant layout, CI/CD, `terraform test`, `mock_provider`, secrets handling, module composition, anti-patterns | `skills/best-practices/SKILL.md` |
+| "ZPA", "private access", `zpa_*` resources, application segments, segment groups, app connector groups, ZPA policy access rules, microtenants | `skills/zpa-skill/SKILL.md` |
+| "ZIA", "internet access", `zia_*` resources, URL filtering, firewall, DLP, SSL inspection, sandbox, cloud app control | `skills/zia-skill/SKILL.md` |
+| "ZTC", "Cloud Branch Connector", `ztc_*` resources, edge connector groups, traffic forwarding rules, ZIA forwarding gateways | `skills/ztc-skill/SKILL.md` |
+| "ZCC", "Client Connector", `zcc_*` resources, trusted networks, forwarding profiles, failopen policy, web app service | `skills/zcc-skill/SKILL.md` |
+| State organization, multi-tenant layout, CI/CD, `terraform test`, `mock_provider`, secrets handling, module composition, anti-patterns | `skills/best-practices-skill/SKILL.md` |
 
 ## Hard Rules (apply to every skill)
 
@@ -64,7 +64,7 @@ If any of these are unknown, ask the user before producing HCL:
 
 Each skill ships its own `references/` directory with deep-dive content (auth patterns, resource catalogs, troubleshooting, recent provider changes). The skill's `SKILL.md` indexes them — load on demand, not eagerly.
 
-Cross-cutting references in `skills/best-practices/references/`:
+Cross-cutting references in `skills/best-practices-skill/references/`:
 
 - `state-management.md` — backends, per-microtenant layout, blast-radius isolation
 - `ci-cd-zscaler.md` — activation step in pipelines, OIDC against Zidentity
