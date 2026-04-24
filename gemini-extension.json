@@ -1,6 +1,6 @@
 {
   "name": "zscaler-terraform-skills",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Agent skills for the Zscaler Terraform providers (ZPA, ZIA, ZTC, ZCC) and engineering best practices.",
   "contextFileName": "GEMINI.md"
 }

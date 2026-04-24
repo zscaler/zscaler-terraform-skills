@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format is b
 
 Releases are produced automatically by [semantic-release](https://github.com/semantic-release/semantic-release) on every merge to `master` from [conventional commit](https://www.conventionalcommits.org/) messages.
 
+## [0.2.0](https://github.com/zscaler/zscaler-terraform-skills/compare/v0.1.4...v0.2.0) (2026-04-24)
+
+### Features
+
+* rename skill dirs to match name and add gh skill spec validator ([#5](https://github.com/zscaler/zscaler-terraform-skills/issues/5)) ([63eaa66](https://github.com/zscaler/zscaler-terraform-skills/commit/63eaa6677d07e712ffa958d8580ab448f609f907)), closes [#9](https://github.com/zscaler/zscaler-terraform-skills/issues/9)
+
 ## [0.1.4](https://github.com/zscaler/zscaler-terraform-skills/compare/v0.1.3...v0.1.4) (2026-04-24)
 
 ### Bug Fixes
