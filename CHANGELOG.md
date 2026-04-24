@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format is b
 
 Releases are produced automatically by [semantic-release](https://github.com/semantic-release/semantic-release) on every merge to `master` from [conventional commit](https://www.conventionalcommits.org/) messages.
 
+## [0.1.4](https://github.com/zscaler/zscaler-terraform-skills/compare/v0.1.3...v0.1.4) (2026-04-24)
+
+### Bug Fixes
+
+* Added GitHub Skill installation instructions and updated Claude.md ([#4](https://github.com/zscaler/zscaler-terraform-skills/issues/4)) ([5518aef](https://github.com/zscaler/zscaler-terraform-skills/commit/5518aef55204f209fd4e0e3e46481fb064b89140))
+
 ## [0.1.3](https://github.com/zscaler/zscaler-terraform-skills/compare/v0.1.2...v0.1.3) (2026-04-24)
 
 ### Bug Fixes
