@@ -1,0 +1,4 @@
+node_modules/
+.git/
+CHANGELOG.md
+package-lock.json

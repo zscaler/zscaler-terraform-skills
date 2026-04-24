@@ -1,0 +1,12 @@
+{
+  "default": true,
+  "MD013": false,
+  "MD033": false,
+  "MD024": { "siblings_only": true },
+  "MD041": true,
+  "MD040": true,
+  "MD009": { "br_spaces": 0 },
+  "MD046": { "style": "fenced" },
+  "MD049": { "style": "asterisk" },
+  "MD050": { "style": "asterisk" }
+}

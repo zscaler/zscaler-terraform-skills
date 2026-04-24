@@ -1,0 +1,141 @@
+name: Validate
+
+on:
+  pull_request:
+    paths:
+      - "skills/**/*.md"
+      - ".claude-plugin/**"
+      - ".github/workflows/validate.yml"
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pyyaml
+        run: pip install pyyaml
+
+      - name: Lint markdown (markdownlint-cli)
+        uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          config: .markdownlint.json
+          globs: |
+            **/*.md
+            !node_modules
+            !CHANGELOG.md
+
+      - name: Validate marketplace.json structure
+        run: |
+          python3 -c "
+          import json, sys
+          mp = json.load(open('.claude-plugin/marketplace.json'))
+          assert 'name' in mp and 'plugins' in mp, 'marketplace.json missing required fields'
+          assert mp['version'] == mp['plugins'][0]['version'], (
+              f\"version mismatch: root={mp['version']} plugins[0]={mp['plugins'][0]['version']}\"
+          )
+          print('marketplace.json OK, version', mp['version'])
+          "
+
+      - name: Validate every SKILL.md frontmatter
+        run: |
+          python3 <<'PY'
+          import yaml, glob, sys
+          required = {'name', 'description', 'license', 'metadata'}
+          required_metadata = {'author', 'version'}
+          failed = False
+          for path in sorted(glob.glob('skills/*/SKILL.md')):
+              content = open(path).read()
+              parts = content.split('---', 2)
+              if len(parts) < 3:
+                  print(f'{path}: missing YAML frontmatter')
+                  failed = True
+                  continue
+              try:
+                  fm = yaml.safe_load(parts[1]) or {}
+              except yaml.YAMLError as e:
+                  print(f'{path}: invalid YAML: {e}')
+                  failed = True
+                  continue
+              missing = required - set(fm.keys())
+              if missing:
+                  print(f'{path}: missing keys {missing}')
+                  failed = True
+              meta = fm.get('metadata') or {}
+              missing_meta = required_metadata - set(meta.keys())
+              if missing_meta:
+                  print(f'{path}: missing metadata keys {missing_meta}')
+                  failed = True
+              desc = fm.get('description', '')
+              if not desc.startswith('Use when'):
+                  print(f'{path}: description should start with "Use when …" (Anthropic skill convention)')
+                  failed = True
+              if len(desc) > 1024:
+                  print(f'{path}: description > 1024 chars ({len(desc)})')
+                  failed = True
+              print(f'{path}: OK')
+          sys.exit(1 if failed else 0)
+          PY
+
+      - name: Verify SKILL.md and marketplace versions are in sync
+        run: |
+          python3 <<'PY'
+          import json, yaml, glob, sys
+          mp = json.load(open('.claude-plugin/marketplace.json'))
+          plugin_version = mp['version']
+          mismatched = []
+          for path in sorted(glob.glob('skills/*/SKILL.md')):
+              parts = open(path).read().split('---', 2)
+              fm = yaml.safe_load(parts[1])
+              v = fm.get('metadata', {}).get('version', '')
+              if v != plugin_version:
+                  mismatched.append((path, v))
+          if mismatched:
+              print(f'Plugin version is {plugin_version}, but:')
+              for p, v in mismatched:
+                  print(f'  {p}: {v}')
+              sys.exit(1)
+          print(f'All SKILL.md versions match plugin version {plugin_version}')
+          PY
+
+      - name: Check SKILL.md line count (target < 300)
+        run: |
+          fail=0
+          for f in skills/*/SKILL.md; do
+            lines=$(wc -l < "$f")
+            if [ "$lines" -gt 300 ]; then
+              echo "::warning file=$f::SKILL.md is $lines lines (target < 300 per LLM Consumption Rules)"
+            else
+              echo "$f: $lines lines"
+            fi
+          done
+
+      - name: Check intra-skill reference links
+        run: |
+          set -e
+          fail=0
+          for skill_dir in skills/*/; do
+            cd "$skill_dir"
+            # Pull every references/...md(...#anchor)? link out of SKILL.md and references/*.md
+            grep -hoE '\[[^]]*\]\(references/[^)]+\)' SKILL.md references/*.md 2>/dev/null \
+              | sed -E 's/.*\(([^)]+)\).*/\1/' \
+              | sed -E 's/#.*$//' \
+              | sort -u \
+              | while read -r link; do
+                  if [ -n "$link" ] && [ ! -f "$link" ]; then
+                    echo "::error file=$skill_dir::Broken link to $link"
+                    fail=1
+                  fi
+                done
+            cd - >/dev/null
+          done
+          exit $fail

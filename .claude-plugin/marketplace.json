@@ -1,0 +1,37 @@
+{
+  "name": "zscaler",
+  "owner": {
+    "name": "Zscaler"
+  },
+  "version": "0.0.0",
+  "metadata": {
+    "description": "Agent skills that teach AI coding assistants how to write correct Terraform HCL for Zscaler providers (ZPA, ZIA, ZTC, ZCC) \u2014 grounded in the official providers' resource catalog, examples, and known API quirks.",
+    "repository": "https://github.com/zscaler/zscaler-terraform-skills",
+    "license": "MIT"
+  },
+  "plugins": [
+    {
+      "name": "zscaler-terraform-skills",
+      "description": "Use when writing, reviewing, or debugging Terraform HCL that uses any Zscaler provider (zpa, zia, ztc, zcc), or when designing the structure / CI/CD / state organization / security pipeline of a Zscaler-Terraform repository. Routes to a per-product skill (zpa-skill, zia-skill, ztc-skill, zcc-skill) for resource catalog, auth, and lifecycle quirks; routes to best-practices-skill for cross-cutting engineering discipline (state, CI/CD, secrets, testing, modules).",
+      "source": "./",
+      "category": "development",
+      "keywords": [
+        "terraform",
+        "opentofu",
+        "iac",
+        "zscaler",
+        "zpa",
+        "zia",
+        "ztc",
+        "zcc",
+        "zero-trust",
+        "secure-access",
+        "policy",
+        "best-practices",
+        "ci-cd",
+        "state-management"
+      ],
+      "version": "0.0.0"
+    }
+  ]
+}
