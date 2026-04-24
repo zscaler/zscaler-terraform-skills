@@ -8,29 +8,55 @@ This file is for **contributors and maintainers** of this skill bundle.
 
 A bundle of [Agent Skills](https://agentskills.io) that ground AI coding assistants in the **public Terraform interface** of the Zscaler providers. Pure Markdown. No code.
 
-Each product (ZPA, ZIA, ZTC, ZCC) lives in its own `skills/<product>/` directory with its own `SKILL.md` and `references/`.
+Five skills ship together:
+
+- Four product skills — `zpa`, `zia`, `ztc`, `zcc` — each in its own `skills/<product>/` directory with its own `SKILL.md` and `references/`.
+- One cross-cutting skill — `best-practices` — covering state organization, CI/CD, testing, secret handling, module shape, anti-patterns.
 
 ## Repo structure
 
 ```text
 zscaler-terraform-skills/
-├── .claude-plugin/marketplace.json   # One plugin, four auto-discovered skills
+├── .claude-plugin/marketplace.json    # Claude Code plugin manifest (root + plugins[0].version)
+├── gemini-extension.json              # Gemini CLI extension manifest (auto-discovers skills/)
+├── GEMINI.md                          # contextFileName for the Gemini extension
 ├── skills/
 │   ├── zpa/
-│   │   ├── SKILL.md
-│   │   └── references/
-│   │       ├── auth-and-providers.md
-│   │       ├── resource-catalog.md
-│   │       ├── policy-rules.md
-│   │       └── troubleshooting.md
-│   ├── zia/SKILL.md
-│   ├── ztc/SKILL.md
-│   └── zcc/SKILL.md
+│   │   ├── SKILL.md                   # Router — < 300 lines
+│   │   └── references/                # On-demand depth — auth, resource catalog, policies, troubleshooting, recent-provider-changes
+│   ├── zia/{SKILL.md,references/}
+│   ├── ztc/{SKILL.md,references/}
+│   ├── zcc/{SKILL.md,references/}
+│   └── best-practices/
+│       ├── SKILL.md
+│       └── references/                # state, ci-cd, security, testing, module patterns, naming, variables, versioning, anti-patterns, quick-ref
+├── scripts/
+│   ├── check_frontmatter.py           # called by `make check-frontmatter`
+│   ├── check_links.py                 # called by `make check-links`
+│   ├── release/sync_versions.py       # called by semantic-release @exec on every release
+│   └── changelog/mine.py              # mines provider CHANGELOGs into references/recent-provider-changes.md
 ├── tests/baseline-scenarios.md
-└── .github/workflows/validate.yml
+├── Makefile                           # validate / lint / release-dry targets
+├── .markdownlint.json + .markdownlintignore
+├── .releaserc.json                    # semantic-release config
+└── .github/workflows/
+    ├── validate.yml                   # PR validation (frontmatter, links, line counts, version sync, markdownlint)
+    └── release.yml                    # cycjimmy/semantic-release-action on push to master
 ```
 
-The marketplace declares **one plugin**, source `./`. Claude Code (and other skill-aware hosts) auto-discover every `skills/<name>/SKILL.md` underneath — each becomes its own activatable skill.
+`marketplace.json` declares **one plugin**, source `./`. Claude Code, Cursor, Gemini CLI, and any other skill-aware host auto-discover every `skills/<name>/SKILL.md` underneath — each becomes its own activatable skill.
+
+## Distribution channels
+
+This one repo ships through five installer surfaces. **Any change to `marketplace.json`, `gemini-extension.json`, a `SKILL.md` `name:`/`description:`, or a top-level reference anchor potentially affects all five.** Don't rename without checking.
+
+| Channel | Reads | Surfaces |
+|---------|-------|----------|
+| Claude Code marketplace | `.claude-plugin/marketplace.json` | `/plugin install zscaler-terraform-skills@zscaler` |
+| Gemini CLI extension | `gemini-extension.json` + `GEMINI.md` + `skills/*/SKILL.md` | `gemini extensions install <repo>` |
+| GitHub CLI | `skills/*/SKILL.md` (frontmatter `name:`) + git tags | `gh skill install zscaler/zscaler-terraform-skills [skill-name] [--pin v0.x.y]` |
+| `npx skills` (cross-agent) | `skills/*/SKILL.md` | `npx skills add <repo>` |
+| Manual clone | `skills/*/SKILL.md` | `git clone <repo> ~/.cursor/skills/...` (Cursor, etc.) |
 
 ## Authoring rules — LLM consumption
 
@@ -64,14 +90,16 @@ Each `skills/<product>/SKILL.md` MUST include:
 
 ```yaml
 ---
-name: <product>-skill        # zpa-skill, zia-skill, ztc-skill, zcc-skill
+name: <product>-skill        # zpa-skill, zia-skill, ztc-skill, zcc-skill, best-practices-skill
 description: Use when writing, reviewing, or debugging Terraform HCL that uses the <product> provider — covers <three concrete categories>.
 license: MIT
 metadata:
   author: Zscaler
-  version: X.Y.Z
+  version: X.Y.Z              # auto-synced — never edit by hand
 ---
 ```
+
+The `name:` field is what users type into `gh skill install zscaler/zscaler-terraform-skills <name>`. Renaming it is a **breaking change** for pinned installs.
 
 The `description` is what triggers skill activation. Make it concrete and unambiguous: name the provider, name the categories. Keep it < 1024 chars.
 
@@ -92,7 +120,14 @@ When you write or update a reference page:
 
 ## Versioning
 
-`marketplace.json` (root + `plugins[0].version`) and every `skills/*/SKILL.md` `metadata.version` are kept in sync **automatically** by [semantic-release](https://github.com/semantic-release/semantic-release) on every merge to `master`. **Do not bump versions by hand in PRs.**
+Four version fields are kept in lockstep **automatically** by [semantic-release](https://github.com/semantic-release/semantic-release) on every merge to `master`:
+
+1. `.claude-plugin/marketplace.json` → `version` (root)
+2. `.claude-plugin/marketplace.json` → `plugins[0].version`
+3. `gemini-extension.json` → `version`
+4. Every `skills/*/SKILL.md` → `metadata.version` (frontmatter)
+
+The sync is driven by `scripts/release/sync_versions.py`, invoked from `.releaserc.json` `@semantic-release/exec` `prepareCmd`. **Do not bump versions by hand in PRs** — the next release commit will overwrite them anyway.
 
 Pick the right [conventional commit](https://www.conventionalcommits.org/) prefix and the right release ships:
 
@@ -116,39 +151,31 @@ make release-dry          # or: npx semantic-release --dry-run --no-ci
 
 ## Local validation
 
+Use the `Makefile` — these are the same checks `.github/workflows/validate.yml` runs on every PR:
+
 ```bash
-# SKILL.md line count target: < 300
-wc -l skills/*/SKILL.md
-
-# Frontmatter sanity (requires pyyaml)
-python3 -c "
-import yaml, glob
-for path in glob.glob('skills/*/SKILL.md'):
-    parts = open(path).read().split('---', 2)
-    fm = yaml.safe_load(parts[1])
-    missing = {'name', 'description', 'license', 'metadata'} - set(fm.keys())
-    print(path, 'OK' if not missing else f'MISSING {missing}')
-"
-
-# Broken intra-reference links
-for skill in skills/*/; do
-  cd "$skill"
-  grep -hoP '\[.*?\]\(references/.*?\.md.*?\)' SKILL.md references/*.md 2>/dev/null | \
-    sed 's/.*(//' | sed 's/).*//' | sed 's/#.*//' | sort -u | \
-    while read -r link; do [ ! -f "$link" ] && echo "BROKEN in $skill: $link"; done
-  cd - >/dev/null
-done
+make validate            # runs every check below in one go
+make check-frontmatter   # YAML frontmatter shape + required keys
+make check-links         # all internal references/*.md links resolve
+make check-line-counts   # warn if any SKILL.md exceeds the 300-line budget
+make check-versions      # marketplace.json + gemini-extension.json + every SKILL.md agree
+make line-counts         # print line counts for SKILL.md + every reference file
+make lint                # markdownlint against .markdownlint.json
+make lint-fix            # auto-fix every issue markdownlint can fix
+make release-dry         # preview what semantic-release would publish next (no writes)
 ```
 
-CI runs equivalent checks in `.github/workflows/validate.yml`.
+Markdown style is enforced by `markdownlint-cli` against `.markdownlint.json` (install once: `npm install -g markdownlint-cli`).
 
 ## PR checklist
 
+- [ ] `make validate` passes locally
 - [ ] Decision table precedes playbook (if multiple approaches exist)
 - [ ] No "Why this matters" / "Note that…" prose — converted to ❌/✅
 - [ ] Every code block / table adds a fact not in surrounding prose
 - [ ] Subsection under 400 tokens
-- [ ] Anchors referenced from SKILL.md remain stable
+- [ ] Anchors referenced from SKILL.md remain stable (a rename of a top-level `### Heading` in any reference file is a **breaking change** — use `feat!:` or `BREAKING CHANGE:`)
+- [ ] No skill `name:` field renamed without `feat!:` (breaks `gh skill install … <name> --pin v…`)
 - [ ] If a new resource attribute appears in HCL, it is verifiable in the provider's `docs/resources/<name>.md`
 - [ ] `tests/baseline-scenarios.md` updated if behaviour for an existing scenario changes
-- [ ] Commit subject uses a [conventional commit](https://www.conventionalcommits.org/) prefix (`feat:` / `fix:` / `docs(skill):` / `chore:` / etc.) so semantic-release picks the right bump on merge — **do not edit version numbers by hand**
+- [ ] Commit subject uses a [conventional commit](https://www.conventionalcommits.org/) prefix (`feat:` for new content, `fix:` for corrections, `docs:` for repo-internal docs only, `chore:` for tooling) so semantic-release picks the right bump on merge — **do not edit version numbers by hand**
