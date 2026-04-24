@@ -67,7 +67,7 @@ ZIA forwarding control rules reference ZPA server groups, ZPA app segments, etc.
 ```hcl
 resource "zia_forwarding_control_zpa_gateway" "gw" {
   zpa_server_group {
-    external_id = "72058304855457833"
+    external_id = "99999999999999999"
     name        = "prod-webapp-servers"
   }
 }
