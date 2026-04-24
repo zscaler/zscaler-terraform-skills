@@ -1,20 +1,10 @@
 # Zscaler Terraform Skills
 
-<p align="center">
-  <a href="https://www.terraform.io/">
-    <img src="https://cdn.simpleicons.org/terraform/623CE4" alt="Terraform" height="60">
-  </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://www.zscaler.com/">
-    <img src="https://cdn.simpleicons.org/zscaler/00BCEB" alt="Zscaler" height="60">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Agent-Skill-5865F2" alt="Agent Skill"></a>
-  <a href="https://www.terraform.io/"><img src="https://img.shields.io/badge/Terraform-1.6+-623CE4" alt="Terraform"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
-</p>
+[![Agent Skill](https://img.shields.io/badge/Agent-Skill-5865F2)](https://agentskills.io)
+[![Terraform](https://img.shields.io/badge/Terraform-1.6+-623CE4)](https://www.terraform.io/)
+[![OpenTofu](https://img.shields.io/badge/OpenTofu-1.6+-FFD814)](https://opentofu.org/)
+[![License](https://img.shields.io/github/license/zscaler/terraform-provider-zpa?color=blue)](https://github.com/zscaler/terraform-provider-zpa/v2/blob/master/LICENSE)
+[![Zscaler Community](https://img.shields.io/badge/zscaler-community-blue)](https://community.zscaler.com/)
 
 A bundle of agent skills that teach AI coding assistants (Claude Code, Cursor, Copilot, Gemini CLI, OpenCode, Codex, …) how to design and write correct Terraform HCL for the Zscaler providers. Five skills ship in this bundle:
 
