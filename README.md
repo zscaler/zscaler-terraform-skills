@@ -74,26 +74,41 @@ Base LLMs hallucinate against non-AWS/Azure/GCP providers — they invent ZPA at
 
 ## Install
 
-### Quick install (any agent)
+Pick the path that matches how you already manage agent skills. All paths consume the same five `SKILL.md` files — the only difference is where they end up on disk and how updates are pulled.
+
+| Path | Best for | Version pinning |
+|------|----------|-----------------|
+| [`gh skill`](#github-cli-gh-skill) | Reproducible installs across teams; CI/agent provisioning | Yes — pin to a tag (`--pin v0.1.0`) or commit SHA |
+| [`gemini extensions install`](#gemini-cli) | Gemini CLI users who want one-command install + auto-update | Tag (auto-updates to latest by default) |
+| [Claude Code plugin](#claude-code) | Claude Code users on the marketplace | Marketplace-managed |
+| [Cursor clone](#cursor) | Cursor users (no native marketplace yet) | Manual `git pull` |
+| [`npx skills add`](#any-host-npx-skills) | One-shot install across many agent hosts at once | Latest only |
+
+### GitHub CLI (`gh skill`)
+
+Requires **`gh` v2.90.0+** ([release notes](https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/)). Check with `gh --version`; upgrade via `brew upgrade gh` or the [signed `.pkg`](https://github.com/cli/cli#installation).
 
 ```bash
-npx skills add https://github.com/zscaler/zscaler-terraform-skills
+# Pick skills + agent host interactively
+gh skill install zscaler/zscaler-terraform-skills
+
+# Install one skill into a specific host, pinned to a release
+gh skill install zscaler/zscaler-terraform-skills zpa-skill --agent claude-code --pin v0.1.0
+
+# Update everything later
+gh skill update --all
 ```
 
-### Per-host
+The five installable skill names are `zpa-skill`, `zia-skill`, `ztc-skill`, `zcc-skill`, `best-practices-skill`. Pinning is recommended for production environments — every release is tagged automatically by semantic-release, so `--pin v<version>` gives you reproducible installs.
 
-<details>
-<summary>Claude Code</summary>
+### Claude Code
 
 ```bash
 /plugin marketplace add zscaler/zscaler-terraform-skills
 /plugin install zscaler-terraform-skills@zscaler
 ```
 
-</details>
-
-<details>
-<summary>Cursor</summary>
+### Cursor
 
 ```bash
 git clone https://github.com/zscaler/zscaler-terraform-skills.git ~/.cursor/skills/zscaler-terraform-skills
@@ -101,19 +116,16 @@ git clone https://github.com/zscaler/zscaler-terraform-skills.git ~/.cursor/skil
 
 Cursor auto-discovers any `skills/<name>/SKILL.md` underneath.
 
-</details>
+### Gemini CLI
 
-<details>
-<summary>Gemini CLI</summary>
-
-Install as a Gemini CLI extension (recommended — auto-discovers all five skills via the `skills/` directory):
+Install as a Gemini CLI extension (auto-discovers all five skills via the `skills/` directory):
 
 ```bash
 gemini extensions install https://github.com/zscaler/zscaler-terraform-skills --consent --auto-update
 ```
 
 - `--consent` — acknowledge the standard third-party-extension warning non-interactively.
-- `--auto-update` — pull in the next semantic-release tag automatically (recommended for skill content that ships frequently).
+- `--auto-update` — pull in the next semantic-release tag automatically.
 
 Update / uninstall:
 
@@ -122,13 +134,21 @@ gemini extensions update zscaler-terraform-skills      # only needed if --auto-u
 gemini extensions uninstall zscaler-terraform-skills
 ```
 
-If you'd rather not use the extension subsystem, clone the repo into one of Gemini CLI's skill discovery tiers instead:
+Alternative — clone into Gemini's skill-discovery tier instead of the extension subsystem:
 
 ```bash
 git clone https://github.com/zscaler/zscaler-terraform-skills ~/.gemini/skills/zscaler-terraform-skills
 ```
 
-</details>
+### Any host (`npx skills`)
+
+Cross-agent installer that writes to the right per-host directory and prompts you for which agents to target:
+
+```bash
+npx skills add https://github.com/zscaler/zscaler-terraform-skills
+```
+
+When prompted, press <kbd>a</kbd> on the skill picker to select all five at once, then pick which agent hosts to install into.
 
 ## How it works
 
@@ -254,7 +274,7 @@ The skill also covers when `terraform test` is enough vs when Terratest (Go) mak
 
 **Sources:**
 
-- The four published Zscaler provider repos: [`terraform-provider-zpa`](https://github.com/zscaler/terraform-provider-zpa), [`terraform-provider-zia`](https://github.com/zscaler/terraform-provider-zia), [`terraform-provider-ztc`](https://github.com/zscaler/terraform-provider-ztc), `terraform-provider-zcc`
+- The four published Zscaler provider repos: [`terraform-provider-zpa`](https://github.com/zscaler/terraform-provider-zpa), [`terraform-provider-zia`](https://github.com/zscaler/terraform-provider-zia), [`terraform-provider-ztc`](https://github.com/zscaler/terraform-provider-ztc), [`terraform-provider-zcc`](https://github.com/zscaler/terraform-provider-zcc)
 - De-identified customer support patterns from real Zscaler-Terraform engagements
 - Engineering discipline patterns from [terraform-best-practices.com](https://www.terraform-best-practices.com/) adapted to Zscaler API granularity
 
