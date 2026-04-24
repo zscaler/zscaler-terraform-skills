@@ -149,17 +149,23 @@ jobs:
   spec:
     name: agentskills.io spec compliance
     runs-on: ubuntu-latest
+    env:
+      # Pin gh to a known-good version that ships `gh skill` (>= 2.90.0).
+      # The default actions/runner-images gh trails the upstream cli/cli release
+      # by ~weeks, so we install our own. Bump as new gh releases land.
+      GH_VERSION: "2.91.0"
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install pinned gh CLI (>= 2.90.0 for `gh skill`)
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.deb" -o /tmp/gh.deb
+          sudo dpkg -i /tmp/gh.deb
+          gh --version
+          gh skill --help >/dev/null 2>&1 || { echo "::error::gh skill subcommand missing after install"; exit 1; }
 
       - name: Validate every skill against the agentskills.io spec
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh --version
-          # gh skill landed in v2.90.0; fail loudly if the runner is older.
-          gh skill --help >/dev/null 2>&1 || {
-            echo "::error::gh CLI on this runner does not support 'gh skill' (need >= 2.90.0). Upgrade the actions/runner image."
-            exit 1
-          }
-          gh skill publish --dry-run
+        run: gh skill publish --dry-run
