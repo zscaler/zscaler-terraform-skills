@@ -1,17 +1,20 @@
 # Zscaler Terraform Skills
 
-[![Agent Skill](https://img.shields.io/badge/Agent-Skill-5865F2)](https://agentskills.io)
-[![Terraform](https://img.shields.io/badge/Terraform-1.6+-623CE4)](https://www.terraform.io/)
-[![License](https://img.shields.io/github/license/zscaler/terraform-provider-zpa?color=blue)](https://github.com/zscaler/terraform-provider-zpa/v2/blob/master/LICENSE)
-[![Zscaler Community](https://img.shields.io/badge/zscaler-community-blue)](https://community.zscaler.com/)
+<p align="center">
+  <a href="https://www.terraform.io/">
+    <img src="https://cdn.simpleicons.org/terraform/623CE4" alt="Terraform" height="60">
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.zscaler.com/">
+    <img src="https://cdn.simpleicons.org/zscaler/00BCEB" alt="Zscaler" height="60">
+  </a>
+</p>
 
-<a href="https://terraform.io">
-    <img src="https://raw.githubusercontent.com/hashicorp/terraform-website/master/public/img/logo-text.svg" alt="Terraform logo" title="Terraform" height="50" />
-</a>
-
-<a href="https://www.zscaler.com/">
-    <img src="https://www.zscaler.com/themes/custom/zscaler/logo.svg" alt="Zscaler logo" title="Zscaler" height="50" />
-</a>
+<p align="center">
+  <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Agent-Skill-5865F2" alt="Agent Skill"></a>
+  <a href="https://www.terraform.io/"><img src="https://img.shields.io/badge/Terraform-1.6+-623CE4" alt="Terraform"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
+</p>
 
 A bundle of agent skills that teach AI coding assistants (Claude Code, Cursor, Copilot, Gemini CLI, OpenCode, Codex, …) how to design and write correct Terraform HCL for the Zscaler providers. Five skills ship in this bundle:
 
@@ -25,7 +28,7 @@ A bundle of agent skills that teach AI coding assistants (Claude Code, Cursor, C
 
 The four provider skills cover **provider correctness** (what attributes does this resource take, how does auth work, how do you avoid known API quirks). The best-practices skill covers **engineering discipline** (how do you structure the repo, how do you split state, how do you wire CI/CD, how do you handle secrets and testing). Install the provider skills you use plus the best-practices skill — they're designed to compose.
 
-> **What this is not.** This repo does not help you *develop* the providers themselves (Go code, Plugin SDK, acceptance tests). It is for **end users writing HCL** that consumes the published `zscaler/*` providers. The canonical schema source for every `zpa_*`, `zia_*`, `ztc_*`, and `zcc_*` resource is the official [Terraform Registry](https://registry.terraform.io/providers/zscaler)
+> **What this is not.** This repo does not help you *develop* the providers themselves (Go code, Plugin SDK, acceptance tests). It is for **end users writing HCL** that consumes the published `zscaler/*` providers. The canonical schema source for every `zpa_*`, `zia_*`, `ztc_*`, and `zcc_*` resource is the official Terraform Registry: <https://registry.terraform.io/providers/zscaler>.
 
 ## What these skills provide
 
@@ -113,8 +116,26 @@ Cursor auto-discovers any `skills/<name>/SKILL.md` underneath.
 <details>
 <summary>Gemini CLI</summary>
 
+Install as a Gemini CLI extension (recommended — auto-discovers all five skills via the `skills/` directory):
+
 ```bash
-gemini extensions install https://github.com/zscaler/zscaler-terraform-skills
+gemini extensions install https://github.com/zscaler/zscaler-terraform-skills --consent --auto-update
+```
+
+- `--consent` — acknowledge the standard third-party-extension warning non-interactively.
+- `--auto-update` — pull in the next semantic-release tag automatically (recommended for skill content that ships frequently).
+
+Update / uninstall:
+
+```bash
+gemini extensions update zscaler-terraform-skills      # only needed if --auto-update is off
+gemini extensions uninstall zscaler-terraform-skills
+```
+
+If you'd rather not use the extension subsystem, clone the repo into one of Gemini CLI's skill discovery tiers instead:
+
+```bash
+git clone https://github.com/zscaler/zscaler-terraform-skills ~/.gemini/skills/zscaler-terraform-skills
 ```
 
 </details>
@@ -243,7 +264,7 @@ The skill also covers when `terraform test` is enough vs when Terratest (Go) mak
 
 **Sources:**
 
-- The four published Zscaler provider repos: [`terraform-provider-zpa`](https://github.com/zscaler/terraform-provider-zpa), [`terraform-provider-zia`](https://github.com/zscaler/terraform-provider-zia), [`terraform-provider-ztc`](https://github.com/zscaler/terraform-provider-ztc), [`terraform-provider-zcc`](https://github.com/zscaler/terraform-provider-zcc)
+- The four published Zscaler provider repos: [`terraform-provider-zpa`](https://github.com/zscaler/terraform-provider-zpa), [`terraform-provider-zia`](https://github.com/zscaler/terraform-provider-zia), [`terraform-provider-ztc`](https://github.com/zscaler/terraform-provider-ztc), `terraform-provider-zcc`
 - De-identified customer support patterns from real Zscaler-Terraform engagements
 - Engineering discipline patterns from [terraform-best-practices.com](https://www.terraform-best-practices.com/) adapted to Zscaler API granularity
 

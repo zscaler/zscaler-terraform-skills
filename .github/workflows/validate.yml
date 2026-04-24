@@ -5,6 +5,8 @@ on:
     paths:
       - "skills/**/*.md"
       - ".claude-plugin/**"
+      - "gemini-extension.json"
+      - "GEMINI.md"
       - ".github/workflows/validate.yml"
   push:
     branches:
@@ -86,7 +88,7 @@ jobs:
           sys.exit(1 if failed else 0)
           PY
 
-      - name: Verify SKILL.md and marketplace versions are in sync
+      - name: Verify SKILL.md, gemini-extension and marketplace versions are in sync
         run: |
           python3 <<'PY'
           import json, yaml, glob, sys
@@ -99,12 +101,16 @@ jobs:
               v = fm.get('metadata', {}).get('version', '')
               if v != plugin_version:
                   mismatched.append((path, v))
+          gemini = json.load(open('gemini-extension.json'))
+          gemini_v = gemini.get('version', '')
+          if gemini_v != plugin_version:
+              mismatched.append(('gemini-extension.json', gemini_v))
           if mismatched:
               print(f'Plugin version is {plugin_version}, but:')
               for p, v in mismatched:
                   print(f'  {p}: {v}')
               sys.exit(1)
-          print(f'All SKILL.md versions match plugin version {plugin_version}')
+          print(f'All SKILL.md + gemini-extension.json versions match plugin version {plugin_version}')
           PY
 
       - name: Check SKILL.md line count (target < 300)
