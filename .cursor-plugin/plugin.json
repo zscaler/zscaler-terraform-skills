@@ -1,0 +1,29 @@
+{
+  "name": "zscaler-terraform-skills",
+  "displayName": "Zscaler Terraform Skills",
+  "description": "Agent skills that teach Cursor how to write correct Terraform HCL for the Zscaler providers (ZPA, ZIA, ZTC, ZCC) and how to structure / operate Zscaler-Terraform repositories.",
+  "version": "0.2.1",
+  "author": {
+    "name": "Zscaler"
+  },
+  "homepage": "https://github.com/zscaler/zscaler-terraform-skills",
+  "repository": "https://github.com/zscaler/zscaler-terraform-skills",
+  "license": "MIT",
+  "keywords": [
+    "terraform",
+    "opentofu",
+    "iac",
+    "zscaler",
+    "zpa",
+    "zia",
+    "ztc",
+    "zcc",
+    "zero-trust",
+    "secure-access",
+    "policy",
+    "best-practices",
+    "ci-cd",
+    "state-management"
+  ],
+  "skills": "./skills/"
+}

@@ -1,0 +1,42 @@
+{
+  "name": "zscaler-terraform-skills",
+  "version": "0.2.1",
+  "description": "Agent skills that teach OpenAI Codex how to write correct Terraform HCL for the Zscaler providers (ZPA, ZIA, ZTC, ZCC) and how to structure / operate Zscaler-Terraform repositories.",
+  "homepage": "https://github.com/zscaler/zscaler-terraform-skills",
+  "repository": "https://github.com/zscaler/zscaler-terraform-skills",
+  "license": "MIT",
+  "author": {
+    "name": "Zscaler",
+    "url": "https://github.com/zscaler"
+  },
+  "keywords": [
+    "terraform",
+    "opentofu",
+    "iac",
+    "zscaler",
+    "zpa",
+    "zia",
+    "ztc",
+    "zcc",
+    "zero-trust",
+    "secure-access",
+    "policy",
+    "best-practices",
+    "ci-cd",
+    "state-management"
+  ],
+  "interface": {
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "category": "Development",
+    "developerName": "Zscaler",
+    "displayName": "Zscaler Terraform Skills",
+    "shortDescription": "Terraform HCL guidance for the Zscaler providers (ZPA, ZIA, ZTC, ZCC) + Zscaler-Terraform engineering best practices.",
+    "longDescription": "Diagnose-first guidance for writing, reviewing, and debugging Terraform HCL that uses the Zscaler providers. Five composable skills cover provider correctness per product (ZPA, ZIA, ZTC, ZCC) and cross-cutting engineering discipline (state organization for microtenants, CI/CD with the Zscaler activation step, OIDC against Zidentity, secret handling, testing strategy, modules, naming, anti-patterns).",
+    "websiteURL": "https://github.com/zscaler/zscaler-terraform-skills"
+  },
+  "skills": "./skills"
+}

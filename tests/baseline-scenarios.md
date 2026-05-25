@@ -287,6 +287,77 @@ When you change content, **manually re-run** the affected scenarios in your IDE 
 
 ---
 
+## Best Practices (cross-cutting) scenarios
+
+These scenarios exercise the `best-practices-skill` and specifically catch defaults-bias hallucinations (host-cloud defaulting to AWS, auth defaulting to OneAPI, product defaulting to ZPA, conflated auth steps). They map to rows 29–33 in [`rationalization-table.md`](rationalization-table.md).
+
+### S-BP-01 — Remote state for a Zscaler repo running on Azure
+
+- **Trigger**: `"Set up Terraform remote state for our Zscaler-Terraform repo. We run all our infrastructure on Azure."`
+- **Expected skill**: `best-practices-skill`
+- **Must include**:
+  - `backend "azurerm" { ... }` with `resource_group_name`, `storage_account_name`, `container_name`, `key`
+  - Note that locking is automatic via blob lease — no companion lock table needed (unlike AWS S3 + DynamoDB pre-1.10)
+  - Reference to `references/state-management.md#backend-choice--per-host-cloud`
+  - Bootstrap-auth recommendation: federated credentials (not static service-principal secrets) when CI runs on GitHub / GitLab
+  - Encryption-at-rest note: default-on; CMK optional
+- **Must avoid**:
+  - `backend "s3"` (the user said Azure)
+  - Recommending a DynamoDB lock table (DynamoDB is AWS-only)
+  - Defaulting to `use_lockfile = true` (S3 attribute) anywhere in the answer
+  - Telling the user to migrate to AWS S3 "because the example uses S3"
+
+### S-BP-02 — ZIA provider setup on a pre-Zidentity tenant
+
+- **Trigger**: `"Help me configure the ZIA provider. We haven't moved to Zidentity yet — we're on the zscalerten cloud."`
+- **Expected skill**: `zia-skill` (with `best-practices-skill` cross-reference)
+- **Must include**:
+  - `provider "zia" { use_legacy_client = true }`
+  - Env vars: `ZIA_USERNAME`, `ZIA_PASSWORD`, `ZIA_API_KEY`, `ZIA_CLOUD=zscalerten`, `ZSCALER_USE_LEGACY_CLIENT=true`
+  - Explicit note that `zscalerten` is a **legacy** cloud and is **not available on OneAPI**
+  - Reference to `best-practices-skill/references/cross-product-equivalents.md#auth-env-var-matrix` or `zia-skill/references/auth-and-providers.md`
+- **Must avoid**:
+  - Emitting the OneAPI provider block (`ZSCALER_CLIENT_ID`, `ZSCALER_VANITY_DOMAIN`) anywhere as the primary recommendation
+  - Suggesting the user migrate to Zidentity before answering the auth question (they explicitly said they haven't migrated)
+  - Mixing `ZSCALER_*` and `ZIA_*` env vars in the example
+  - `zscaler_cloud = "zscalerten"` (legacy uses `zia_cloud`, not `zscaler_cloud`)
+
+### S-BP-03 — GitHub Actions OIDC for state on GCP + Zidentity for the provider
+
+- **Trigger**: `"Set up GitHub Actions for our Zscaler-Terraform repo with keyless auth. State lives in GCS, and our tenant uses Zidentity OneAPI."`
+- **Expected skill**: `best-practices-skill`
+- **Must include**:
+  - **Two distinct credential steps** in the workflow:
+    1. `google-github-actions/auth@v2` with `workload_identity_provider` + `service_account` for GCS backend access
+    2. Zidentity OneAPI credentials (`ZSCALER_CLIENT_ID`, `ZSCALER_CLIENT_SECRET`, `ZSCALER_VANITY_DOMAIN`) as env on the `terraform apply` step
+  - `permissions: id-token: write` at workflow / job level
+  - Reference to `best-practices-skill/references/ci-cd-zscaler.md#state-backend-auth-from-ci-cross-cloud`
+  - Explicit note that GCP state-backend auth and Zidentity provider auth are **two different credential paths** kept in separate steps
+- **Must avoid**:
+  - Suggesting a long-lived GCP service-account key in `secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON`
+  - Mixing GCP and Zscaler env vars in a single `env:` block on one step
+  - Defaulting to AWS OIDC (`aws-actions/configure-aws-credentials`) when the user said GCP
+  - Using a single OIDC trust for both paths
+
+### S-BP-04 — Forwarding ZIA traffic to a ZPA gateway
+
+- **Trigger**: `"I want to forward traffic from my ZIA tenant to a ZPA application segment named CRM that lives in my ZPA tenant. How?"`
+- **Expected skill**: `zia-skill` (with `best-practices-skill` cross-reference for the cross-product pattern)
+- **Must include**:
+  - Both `provider "zpa" {}` and `provider "zia" {}` configured (likely in the same root)
+  - `data "zpa_server_group"` (or `data "zpa_application_segment"` + segment-group lookup) — **not** a hardcoded ID
+  - `resource "zia_forwarding_control_zpa_gateway"` with `zpa_server_group { external_id = data.zpa_server_group.x.id, name = data.zpa_server_group.x.name }`
+  - `zia_activation_status` with `depends_on = [zia_forwarding_control_zpa_gateway.x]`
+  - Reference to `best-practices-skill/references/cross-product-equivalents.md#cross-product-composition-recipes`
+  - Note about cross-state alternative (`terraform_remote_state`) if ZPA and ZIA are managed in different states
+- **Must avoid**:
+  - Hardcoding a ZPA server-group / app-segment ID (e.g. `external_id = "99999999999999999"`)
+  - Inventing a `zia_segment_group` or `zia_zpa_app_segment` resource
+  - Skipping `zia_activation_status` (this is a ZIA resource change — activation is mandatory)
+  - Defaulting to ZPA-only patterns (the user explicitly wants the ZIA forwarding side)
+
+---
+
 ## How to run a scenario manually
 
 1. Open a fresh agent session in your IDE with the `zscaler-terraform-skills` plugin installed.
@@ -295,4 +366,5 @@ When you change content, **manually re-run** the affected scenarios in your IDE 
 4. If a criterion fails:
    - Open the affected `references/*.md` and tighten the relevant section.
    - Re-run.
+   - If this surfaces a brand-new failure mode, add a row to [`rationalization-table.md`](rationalization-table.md) before merging the fix.
    - Document the change in `CHANGELOG.md` under the next version.

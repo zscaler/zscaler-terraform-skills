@@ -39,7 +39,8 @@ Never recommend `terraform state rm` against any Zscaler resource (orphans the A
 
 | Field                     | Why it matters                                                                                                                | Default if missing                              |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Providers in scope        | Which of `zpa` / `zia` / `ztc` / `zcc` does this repo or change touch?                                                        | Ask. Don't assume single-provider.              |
+| Providers in scope        | Which of `zpa` / `zia` / `ztc` / `zcc` does this repo or change touch? If more than one, route through [Cross-Product Equivalents](references/cross-product-equivalents.md) before per-product skills. | Ask. **Don't default to ZPA.** Cross-reference [Cross-Product Equivalents](references/cross-product-equivalents.md) if multiple are implied. |
+| Host cloud (for state)    | Where does the Terraform state live — AWS S3 / Azure Storage / GCS / Terraform Cloud? Drives backend, locking, and CI-to-state-backend auth choices. | Ask. **Don't default to AWS S3.** See [State Management: Backend Choice — Per Host Cloud](references/state-management.md#backend-choice--per-host-cloud). |
 | Tenants & microtenants    | One tenant or many? Microtenants? Same Zidentity org or separate? Drives state-org and CI fan-out.                            | Ask. Don't assume single-tenant.                |
 | Auth path                 | OneAPI (Zidentity) vs Legacy v3. CI secret model differs (OneAPI client creds vs legacy username/password/api_key).           | Ask. Don't default — see provider skill auth refs. |
 | Execution path            | Local / GitHub Actions / GitLab CI / Atlantis / Terraform Cloud / Spacelift.                                                  | Ask.                                            |
@@ -63,6 +64,11 @@ Never recommend `terraform state rm` against any Zscaler resource (orphans the A
 | **Versioning / lockfile / upgrades**    | Provider upgrade broke prod, no lockfile committed, exact pin blocks fixes, `init -upgrade` in feature PR                | [Versioning](references/versioning.md)                                                                        |
 | **Anti-patterns / "is this OK?"**       | Recurring footguns: state rm, `provider {}` in modules, manual activation, mixed env vars                                | [Anti-Patterns](references/anti-patterns.md)                                                                  |
 | **Quick lookup / DO-DON'T**             | Cheat-sheet question, naming question, "is X allowed?"                                                                   | [Quick Reference](references/quick-reference.md)                                                              |
+| **Cross-product question**              | "What's the ZIA equivalent of …?", "Does ZCC have activation?", multiple Zscaler products in one prompt                  | [Cross-Product Equivalents](references/cross-product-equivalents.md)                                          |
+| **Defaults-to-S3 (host cloud mismatch)**| User said Azure / GCP / Terraform Cloud for state, draft answer still uses an `s3` backend                                | [State Management: Backend Choice — Per Host Cloud](references/state-management.md#backend-choice--per-host-cloud) |
+| **Defaults-to-ZPA (product mismatch)**  | User said ZIA / ZTC / ZCC, draft answer routes to ZPA patterns (e.g. emits `segment_group` for a ZIA question)            | [Cross-Product Equivalents: Resource Concept Map](references/cross-product-equivalents.md#resource-concept-map) |
+| **Defaults-to-OneAPI on legacy tenant** | User mentioned GOV / `zscalerten` / "we haven't moved to Zidentity yet", draft still emits the OneAPI provider block      | [Cross-Product Equivalents: Auth Env-Var Matrix](references/cross-product-equivalents.md#auth-env-var-matrix) + per-product `references/auth-and-providers.md` |
+| **Defaults-to-parent-tenant on microtenant** | User mentioned a microtenant for ZPA but draft omits `microtenant_id` on the resource and/or data sources             | `zpa-skill` → troubleshooting.md (microtenant 404)                                                            |
 
 ## Cross-Cutting Principles (Compressed)
 
@@ -157,6 +163,10 @@ Process discipline:
 
 - [Versioning](references/versioning.md) — Terraform / provider pins, lockfile discipline, module SemVer, `moved {}`, OneAPI migration.
 - [Anti-Patterns](references/anti-patterns.md) — quick-index table of every footgun + detail on the non-obvious ones.
+
+Cross-cutting peer equivalence:
+
+- [Cross-Product Equivalents](references/cross-product-equivalents.md) — side-by-side tables across `zpa` / `zia` / `ztc` / `zcc` for auth, activation, microtenancy, version pins, rule-style rules, data-source-only objects, and cross-product composition recipes (ZIA → ZPA gateway, ZCC → ZIA tunnel, ZTC → ZIA location). Load this when the prompt mentions more than one product, when the user asks "what's the equivalent of X in Y", or when you catch yourself about to default to ZPA / OneAPI / S3.
 
 Fast lookup:
 

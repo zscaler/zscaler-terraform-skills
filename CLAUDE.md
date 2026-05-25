@@ -18,6 +18,8 @@ Five skills ship together:
 ```text
 zscaler-terraform-skills/
 ├── .claude-plugin/marketplace.json    # Claude Code plugin manifest (root + plugins[0].version)
+├── .cursor-plugin/plugin.json         # Cursor plugin manifest (one plugin, declares ./skills/)
+├── .codex-plugin/plugin.json          # Codex (OpenAI) plugin manifest (one plugin, declares ./skills/)
 ├── gemini-extension.json              # Gemini CLI extension manifest (auto-discovers skills/)
 ├── GEMINI.md                          # contextFileName for the Gemini extension
 ├── skills/
@@ -50,15 +52,19 @@ zscaler-terraform-skills/
 
 ## Distribution channels
 
-This one repo ships through five installer surfaces. **Any change to `marketplace.json`, `gemini-extension.json`, a `SKILL.md` `name:`/`description:`, or a top-level reference anchor potentially affects all five.** Don't rename without checking.
+This one repo ships through seven installer surfaces. **Any change to a plugin manifest (`.claude-plugin/marketplace.json`, `.cursor-plugin/plugin.json`, `.codex-plugin/plugin.json`), `gemini-extension.json`, a `SKILL.md` `name:`/`description:`, or a top-level reference anchor potentially affects all of them.** Don't rename without checking.
 
 | Channel | Reads | Surfaces |
 |---------|-------|----------|
 | Claude Code marketplace | `.claude-plugin/marketplace.json` | `/plugin install zscaler-terraform-skills@zscaler` |
+| Cursor marketplace / plugin | `.cursor-plugin/plugin.json` + `skills/*/SKILL.md` | Install from [cursor.com/marketplace](https://cursor.com/marketplace), or `~/.cursor/plugins/local/<dir>` for unlisted plugins |
+| Codex plugin | `.codex-plugin/plugin.json` + `skills/*/SKILL.md` | `$skill-installer` (Codex CLI/IDE/app), or git clone into `~/.agents/skills/` |
 | Gemini CLI extension | `gemini-extension.json` + `GEMINI.md` + `skills/*/SKILL.md` | `gemini extensions install <repo>` |
 | GitHub CLI | `skills/*/SKILL.md` (frontmatter `name:`) + git tags | `gh skill install zscaler/zscaler-terraform-skills [skill-name] [--pin v0.x.y]` |
 | `npx skills` (cross-agent) | `skills/*/SKILL.md` | `npx skills add <repo>` |
-| Manual clone | `skills/*/SKILL.md` | `git clone <repo> ~/.cursor/skills/...` (Cursor, etc.) |
+| Manual clone | `skills/*/SKILL.md` | `git clone <repo> ~/.cursor/skills/...` (auto-discovery fallback for any host) |
+
+**Manifest extension rule.** Every distribution manifest declares `skills: "./skills/"` (or `./skills`) and discovers content from disk — adding a new `skills/<name>/` folder requires **no manifest edit**. The manifests must be edited when adding new component categories (e.g. rules, commands, hooks, MCP servers). Today this repo ships skills only; if a future PR adds rules/commands/hooks/MCP, both `.cursor-plugin/plugin.json` and `.codex-plugin/plugin.json` (and `.claude-plugin/marketplace.json` as applicable) must be updated in the same PR.
 
 `gh skill publish` is **not** part of the release pipeline — semantic-release handles tagging and GitHub releases. We use `gh skill publish --dry-run` (wrapped as `make spec-check`, run in CI) only to validate spec compliance. Never run `gh skill publish` (without `--dry-run`) against this repo or it will create a duplicate release that fights semantic-release.
 
@@ -86,7 +92,7 @@ Each `skills/<product>/SKILL.md` MUST include:
 | Frontmatter                   | `name`, `description` (triggering), `license`, `metadata.version`.        |
 | Response Contract             | Assumptions, provider version floor, risk, chosen remediation, validation, rollback. |
 | Workflow                      | Capture context → Diagnose → Load reference → Propose → Validate → Emit.  |
-| Diagnose Before You Generate  | Routing table from failure category → reference anchor.                   |
+| Diagnose Before You Generate  | Routing table from failure category → reference anchor. **Must include a row that routes to `best-practices-skill/references/cross-product-equivalents.md` when the prompt mentions more than one Zscaler product.** |
 | Capture-context fields        | Provider version, auth mode, microtenant_id (ZPA), customer ID, cloud.    |
 | Reference index               | One bullet per `references/*.md`.                                         |
 
@@ -124,14 +130,16 @@ When you write or update a reference page:
 
 ## Versioning
 
-Four version fields are kept in lockstep **automatically** by [semantic-release](https://github.com/semantic-release/semantic-release) on every merge to `master`:
+Six version fields are kept in lockstep **automatically** by [semantic-release](https://github.com/semantic-release/semantic-release) on every merge to `master`:
 
 1. `.claude-plugin/marketplace.json` → `version` (root)
 2. `.claude-plugin/marketplace.json` → `plugins[0].version`
-3. `gemini-extension.json` → `version`
-4. Every `skills/*/SKILL.md` → `metadata.version` (frontmatter)
+3. `.cursor-plugin/plugin.json` → `version`
+4. `.codex-plugin/plugin.json` → `version`
+5. `gemini-extension.json` → `version`
+6. Every `skills/*/SKILL.md` → `metadata.version` (frontmatter)
 
-The sync is driven by `scripts/release/sync_versions.py`, invoked from `.releaserc.json` `@semantic-release/exec` `prepareCmd`. **Do not bump versions by hand in PRs** — the next release commit will overwrite them anyway.
+The sync is driven by `scripts/release/sync_versions.py`, invoked from `.releaserc.json` `@semantic-release/exec` `prepareCmd`. The same five files (plus `CHANGELOG.md`) are listed in `.releaserc.json` → `@semantic-release/git.assets`, so semantic-release commits the bumped versions alongside the release tag. **Do not bump versions by hand in PRs** — the next release commit will overwrite them anyway.
 
 Pick the right [conventional commit](https://www.conventionalcommits.org/) prefix and the right release ships:
 
@@ -162,7 +170,7 @@ make validate            # runs every check below in one go
 make check-frontmatter   # YAML frontmatter shape + required keys
 make check-links         # all internal references/*.md links resolve
 make check-line-counts   # warn if any SKILL.md exceeds the 300-line budget
-make check-versions      # marketplace.json + gemini-extension.json + every SKILL.md agree
+make check-versions      # marketplace.json + cursor + codex + gemini-extension + every SKILL.md agree
 make spec-check          # 'gh skill publish --dry-run' — agentskills.io spec compliance (requires gh >= 2.90.0)
 make line-counts         # print line counts for SKILL.md + every reference file
 make lint                # markdownlint against .markdownlint.json
@@ -184,4 +192,7 @@ Markdown style is enforced by `markdownlint-cli` against `.markdownlint.json` (i
 - [ ] No skill `name:` field renamed without `feat!:` (breaks `gh skill install … <name> --pin v…`)
 - [ ] If a new resource attribute appears in HCL, it is verifiable in the provider's `docs/resources/<name>.md`
 - [ ] `tests/baseline-scenarios.md` updated if behaviour for an existing scenario changes
+- [ ] **If a new diagnose row is added to any `SKILL.md`, a paired baseline scenario is added in `tests/baseline-scenarios.md` AND a paired row is added in `tests/rationalization-table.md` (status starts `❌` if no guard exists yet, promotes to `✅` once the scenario passes)**
+- [ ] **If a cross-product or cross-cloud topic is added, cross-link to `best-practices-skill/references/cross-product-equivalents.md` (or `references/state-management.md#backend-choice--per-host-cloud` for host-cloud splits) instead of duplicating tables in per-product skills**
+- [ ] **If a new component category is added (rules, commands, hooks, MCP servers), `.cursor-plugin/plugin.json` and `.codex-plugin/plugin.json` are both updated to declare the new path — skill-only additions need no manifest edit**
 - [ ] Commit subject uses a [conventional commit](https://www.conventionalcommits.org/) prefix (`feat:` for new content, `fix:` for corrections, `docs:` for repo-internal docs only, `chore:` for tooling) so semantic-release picks the right bump on merge — **do not edit version numbers by hand**
