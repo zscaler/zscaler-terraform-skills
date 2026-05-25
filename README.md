@@ -81,7 +81,8 @@ Pick the path that matches how you already manage agent skills. All paths consum
 | [`gh skill`](#github-cli-gh-skill) | Reproducible installs across teams; CI/agent provisioning | Yes — pin to a tag (`--pin v0.1.0`) or commit SHA |
 | [`gemini extensions install`](#gemini-cli) | Gemini CLI users who want one-command install + auto-update | Tag (auto-updates to latest by default) |
 | [Claude Code plugin](#claude-code) | Claude Code users on the marketplace | Marketplace-managed |
-| [Cursor clone](#cursor) | Cursor users (no native marketplace yet) | Manual `git pull` |
+| [Cursor plugin](#cursor) | Cursor users — marketplace install once listed, local plugin load before then | Marketplace-managed (post-listing) / `git pull` |
+| [Codex plugin](#codex-openai) | OpenAI Codex CLI / IDE / app users | Marketplace-managed (post-listing) / `git pull` |
 | [`npx skills add`](#any-host-npx-skills) | One-shot install across many agent hosts at once | Latest only |
 
 ### GitHub CLI (`gh skill`)
@@ -110,11 +111,55 @@ The five installable skill names are `zpa-skill`, `zia-skill`, `ztc-skill`, `zcc
 
 ### Cursor
 
+This repo ships a [Cursor plugin manifest](.cursor-plugin/plugin.json), so it can be installed three ways depending on whether it has been listed in the [Cursor marketplace](https://cursor.com/marketplace).
+
+**Cursor marketplace (once listed):**
+
+Open the marketplace panel inside Cursor (or [cursor.com/marketplace](https://cursor.com/marketplace)) and search for `zscaler-terraform-skills`, then click Install. Cursor handles updates automatically.
+
+**Local plugin install (works today, even before marketplace listing):**
+
+```bash
+git clone https://github.com/zscaler/zscaler-terraform-skills.git ~/.cursor/plugins/local/zscaler-terraform-skills
+```
+
+Reload the Cursor window (Cmd-Shift-P → "Reload Window"). Cursor reads the plugin manifest and registers all five skills. Update with `git pull` in the cloned directory.
+
+**Skill-only fallback (no manifest required):**
+
 ```bash
 git clone https://github.com/zscaler/zscaler-terraform-skills.git ~/.cursor/skills/zscaler-terraform-skills
 ```
 
-Cursor auto-discovers any `skills/<name>/SKILL.md` underneath.
+Cursor auto-discovers any `skills/<name>/SKILL.md` underneath. Same content, just without the plugin packaging.
+
+### Codex (OpenAI)
+
+This repo ships a [Codex plugin manifest](.codex-plugin/plugin.json) for the OpenAI Codex CLI, IDE extension, and Codex app. Codex distinguishes between *skills* (the authoring format) and *plugins* (the installable distribution unit). The manifest unlocks the plugin install path; the skills themselves still work via auto-discovery without it.
+
+**Plugin install via Codex's skill installer:**
+
+Inside Codex, run:
+
+```text
+$skill-installer
+```
+
+When prompted, point it at this repository (`https://github.com/zscaler/zscaler-terraform-skills`). Codex detects the manifest, registers all five skills under the plugin name `zscaler-terraform-skills`, and tracks updates.
+
+**Skill-only auto-discovery (works today, no manifest required):**
+
+```bash
+git clone https://github.com/zscaler/zscaler-terraform-skills.git ~/.agents/skills/zscaler-terraform-skills
+```
+
+Codex auto-discovers skills under `~/.agents/skills/` (user scope) and `<repo>/.agents/skills/` (repo scope). Update with `cd ~/.agents/skills/zscaler-terraform-skills && git pull`. Disable any skill without deleting it by adding an entry to `~/.codex/config.toml`:
+
+```toml
+[[skills.config]]
+path = "/Users/<you>/.agents/skills/zscaler-terraform-skills/skills/zia-skill/SKILL.md"
+enabled = false
+```
 
 ### Gemini CLI
 

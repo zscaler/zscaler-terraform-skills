@@ -31,7 +31,7 @@ help:
 	@printf "$(COLOR_OK)  check-frontmatter$(COLOR_NONE)   Validate YAML frontmatter in every SKILL.md\n"
 	@printf "$(COLOR_OK)  check-links$(COLOR_NONE)         Verify all internal references/*.md links resolve\n"
 	@printf "$(COLOR_OK)  check-line-counts$(COLOR_NONE)   Warn if any SKILL.md exceeds 300 lines (token budget)\n"
-	@printf "$(COLOR_OK)  check-versions$(COLOR_NONE)      Verify marketplace.json + gemini-extension.json + every SKILL.md agree on version\n"
+	@printf "$(COLOR_OK)  check-versions$(COLOR_NONE)      Verify all plugin manifests (.claude/.cursor/.codex-plugin) + gemini-extension.json + every SKILL.md agree on version\n"
 	@printf "$(COLOR_OK)  spec-check$(COLOR_NONE)          Validate every skill against the agentskills.io spec via 'gh skill publish --dry-run'\n"
 	@printf "$(COLOR_OK)  line-counts$(COLOR_NONE)         Show line counts for every SKILL.md and reference file\n"
 	@echo ""
