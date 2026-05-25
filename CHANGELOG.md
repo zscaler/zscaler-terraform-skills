@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format is b
 
 Releases are produced automatically by [semantic-release](https://github.com/semantic-release/semantic-release) on every merge to `master` from [conventional commit](https://www.conventionalcommits.org/) messages.
 
+## [0.3.0](https://github.com/zscaler/zscaler-terraform-skills/compare/v0.2.1...v0.3.0) (2026-05-25)
+
+### Features
+
+* cross-product / cross-cloud equivalence + anti-default guards + Cursor/Codex distribution ([#7](https://github.com/zscaler/zscaler-terraform-skills/issues/7)) ([c587608](https://github.com/zscaler/zscaler-terraform-skills/commit/c5876088a01dbd8e7b40f976af7fc587f48554e9))
+
 ## [0.2.1](https://github.com/zscaler/zscaler-terraform-skills/compare/v0.2.0...v0.2.1) (2026-04-24)
 
 ### Bug Fixes
