@@ -59,6 +59,7 @@ Never recommend `terraform apply` against a production ZIA tenant without a revi
 | **DUPLICATE_ITEM**             | `400 DUPLICATE_ITEM` on create — name collision with predefined or pre-existing object                              | [Troubleshooting: DUPLICATE_ITEM](references/troubleshooting.md#duplicate_item-on-create)                             |
 | **Country / locale validation**| `'AUC' is not a valid ISO-3166 Alpha-2 country code`, `country` rejected on `zia_location_management`                | [Troubleshooting: Country Code Validation](references/troubleshooting.md#country-code--locale-validation)             |
 | **Secret exposure**            | Credentials in `.tfvars`, in state, in CI logs                                                                       | [Auth & Providers: Credential Hygiene](references/auth-and-providers.md#credential-hygiene)                           |
+| **Cross-product question**     | Prompt mentions ZPA / ZTC / ZCC alongside ZIA, asks "what's the ZPA equivalent of …", or forwards ZIA traffic to a ZPA gateway | `best-practices-skill` → [Cross-Product Equivalents](../best-practices-skill/references/cross-product-equivalents.md)                          |
 
 ## Provider Block — Pick One
 

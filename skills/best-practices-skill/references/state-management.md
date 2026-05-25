@@ -48,9 +48,21 @@ infrastructure/
 
 **Why this shape:** identity comes first because every downstream state reads SCIM group IDs from it; ZPA splits on microtenant because that's the natural blast-radius boundary; ZIA splits on policy team ownership; ZTC/ZCC add their own splits if your tenancy/team shape demands it.
 
-## Backend — Minimum Viable
+## Backend Choice — Per Host Cloud
 
-S3 with native lockfile (Terraform 1.10+):
+Pick the backend that matches the cloud the Terraform state and CI already run on. A Zscaler-Terraform repo's state can live on any of these — there is no "Zscaler-preferred" backend.
+
+| Concern                          | AWS S3                                                                  | Azure Storage                                                                                       | GCS                                                                            | Terraform Cloud / Enterprise                            |
+| -------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| Backend block                    | `backend "s3"` with `bucket`, `key`, `region`, `encrypt`, `use_lockfile` | `backend "azurerm"` with `resource_group_name`, `storage_account_name`, `container_name`, `key`     | `backend "gcs"` with `bucket`, `prefix`                                         | `backend "cloud"` with `organization`, `workspaces`     |
+| Locking                          | Native lockfile (`use_lockfile = true`, Terraform 1.10+) or DynamoDB     | Native blob lease (always on)                                                                       | Native GCS locking (always on)                                                  | Built-in workspace lock                                  |
+| Encryption at rest               | Explicit: SSE-S3 (default) or SSE-KMS (`kms_key_id`)                    | Default-on (storage-account SSE); optional CMK                                                       | Default-on (Google-managed); optional CMEK                                      | Built-in (managed by HashiCorp)                          |
+| Public-access block              | `aws_s3_bucket_public_access_block`                                     | `allow_nested_items_to_be_public = false` + private container                                       | Uniform bucket-level access + public-access prevention                          | n/a (managed)                                            |
+| Versioning / point-in-time       | S3 bucket versioning                                                    | Storage-account / blob versioning                                                                   | GCS object versioning                                                           | Built-in state versioning                                |
+| Bootstrap auth from CI           | OIDC → IAM role (`aws_iam_role` with GitHub Actions trust)              | Federated credentials → service principal                                                           | Workload Identity Federation                                                    | API token (or OIDC for HCP)                              |
+| Remote-state data source         | `terraform_remote_state` (backend `s3`)                                 | `terraform_remote_state` (backend `azurerm`)                                                        | `terraform_remote_state` (backend `gcs`)                                       | `terraform_remote_state` (backend `cloud`) or `tfe_outputs` |
+
+### AWS S3 (Terraform 1.10+)
 
 ```hcl
 terraform {
@@ -65,9 +77,63 @@ terraform {
 }
 ```
 
-For Terraform `< 1.10`: use `dynamodb_table = "terraform-state-lock"` instead of `use_lockfile`.
+On Terraform `< 1.10`, replace `use_lockfile` with `dynamodb_table = "terraform-state-lock"`.
 
-GCS / Azure Blob / Terraform Cloud / Terraform Enterprise / Spacelift all provide built-in locking — pick what your org already runs.
+### Azure Storage
+
+```hcl
+terraform {
+  required_version = "~> 1.9"
+  backend "azurerm" {
+    resource_group_name  = "acme-tfstate-rg"
+    storage_account_name = "acmetfstateprod"
+    container_name       = "zscaler"
+    key                  = "zia/policy-network.tfstate"
+  }
+}
+```
+
+Locking is automatic via blob lease — no companion lock table needed. Encryption is default-on; configure a customer-managed key on the storage account if your compliance regime requires it.
+
+### GCS
+
+```hcl
+terraform {
+  required_version = "~> 1.9"
+  backend "gcs" {
+    bucket = "acme-terraform-state-prod"
+    prefix = "zscaler/zia/policy-network"
+  }
+}
+```
+
+Locking is native to GCS. Encryption is default-on; configure a CMEK on the bucket if required.
+
+### Terraform Cloud / Enterprise
+
+```hcl
+terraform {
+  required_version = "~> 1.9"
+  cloud {
+    organization = "acme"
+    workspaces {
+      name = "zscaler-zia-policy-network-prod"
+    }
+  }
+}
+```
+
+Locking, versioning, encryption, and audit log are all built-in. Use one workspace per state.
+
+### Spacelift
+
+Stack per state; locking via stack run isolation. Use Spacelift's GitHub VCS integration for plan/apply approval gating.
+
+❌ Defaulting to `backend "s3"` because the example shows S3 — pick the backend that matches the cloud the customer's state and CI already live on.
+❌ Mixing backends in the same repo (one state on S3, sibling state on GCS) without a clear ownership-boundary rationale — adds operational complexity for no benefit.
+✅ Pick one backend per state. Pick the backend per the host cloud, not per the Zscaler product being managed.
+
+For per-CI-host bootstrap auth (GitHub Actions / GitLab CI → AWS / Azure / GCP), see [CI/CD: State-Backend Auth from CI](ci-cd-zscaler.md#state-backend-auth-from-ci-cross-cloud).
 
 ## Cross-State References
 

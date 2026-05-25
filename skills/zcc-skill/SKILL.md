@@ -58,6 +58,7 @@ Every ZCC HCL response must include:
 | **Resource catalog mismatch**     | Invented attribute names; assuming ZCC has rule-ordering or activation (it does not)                                | [Resource Catalog](references/resource-catalog.md)                                                                    |
 | **Drift on every plan**           | Bool flips, fields churn after import                                                                                | [Troubleshooting: Drift Causes](references/troubleshooting.md#drift-causes)                                           |
 | **Secret exposure**               | Credentials in `.tfvars`, in state, in CI logs                                                                       | [Auth & Providers: Credential Hygiene](references/auth-and-providers.md#credential-hygiene)                           |
+| **Cross-product question**        | Prompt mentions ZPA / ZIA / ZTC alongside ZCC, or wires a ZCC trusted network into a ZIA tunnel context              | `best-practices-skill` → [Cross-Product Equivalents](../best-practices-skill/references/cross-product-equivalents.md)                          |
 
 ## Provider Block — Pick One
 

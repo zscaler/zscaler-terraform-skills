@@ -61,6 +61,7 @@ The provider is pre-1.0 (`~> 0.1.x`). Surface this in the assumptions: schemas m
 | **OneAPI vs Legacy availability gap**      | Resource works on legacy auth but read returns empty / partial data on OneAPI (or vice versa)                        | [Troubleshooting: OneAPI vs Legacy gaps](references/troubleshooting.md#oneapi-vs-legacy-availability-gaps)      |
 | **Drift on every plan**                    | Bool flips, computed defaults churn                                                                                  | [Troubleshooting: Drift Causes](references/troubleshooting.md#drift-causes)                                     |
 | **Secret exposure**                        | Credentials in `.tfvars`, in state, in CI logs                                                                       | [Auth & Providers: Credential Hygiene](references/auth-and-providers.md#credential-hygiene)                     |
+| **Cross-product question**                 | Prompt mentions ZPA / ZIA / ZCC alongside ZTC, asks "what's the ZIA equivalent of …", or pairs a ZTC location with a ZIA forwarding rule | `best-practices-skill` → [Cross-Product Equivalents](../best-practices-skill/references/cross-product-equivalents.md)                          |
 
 ## Provider Block — Pick One
 

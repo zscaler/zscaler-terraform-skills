@@ -57,6 +57,7 @@ Never recommend `terraform apply` against a production ZPA tenant without a revi
 | **Microtenant scoping**     | Resource exists in console but Read returns 404 → Terraform recreates                                                 | [Troubleshooting: Microtenant 404](references/troubleshooting.md#microtenant-not-found)                                                     |
 | **Drift on every plan**     | Bool attribute keeps flipping, set order changes, write-only field clears                                             | [Troubleshooting: Drift Causes](references/troubleshooting.md#drift-causes)                                                                 |
 | **Secret exposure**         | Client secrets / private keys in `.tfvars`, in state, in CI logs                                                     | [Auth & Providers: Credential Hygiene](references/auth-and-providers.md#credential-hygiene)                                                 |
+| **Cross-product question**  | Prompt mentions ZIA / ZTC / ZCC alongside ZPA, asks "what's the ZIA equivalent of …", or wires ZPA into a ZIA forwarding gateway | `best-practices-skill` → [Cross-Product Equivalents](../best-practices-skill/references/cross-product-equivalents.md)                          |
 
 ## Provider Block — Pick One
 

@@ -127,6 +127,133 @@ Rules:
 | ZTC legacy          | `ZTC_USERNAME`, `ZTC_PASSWORD`, `ZTC_API_KEY`, `ZTC_CLOUD`, `ZSCALER_USE_LEGACY_CLIENT=true` | —                                              |
 | ZCC legacy          | `ZCC_CLIENT_ID`, `ZCC_CLIENT_SECRET`, `ZCC_CLOUD`, `ZSCALER_USE_LEGACY_CLIENT=true`   | —                                              |
 
+Cross-product equivalence for the env-var matrix lives in [Cross-Product Equivalents: Auth Env-Var Matrix](cross-product-equivalents.md#auth-env-var-matrix).
+
+## State-Backend Auth from CI (Cross-Cloud)
+
+A Zscaler-Terraform job typically needs **two distinct auth paths**: one to talk to the Zscaler API (Zidentity OneAPI or legacy v3 — see above), and one to read/write Terraform state on the host cloud's backend (AWS S3 / Azure Storage / GCS / Terraform Cloud).
+
+Use keyless federation for the host-cloud path whenever possible; long-lived static cloud credentials in CI are a separate compliance liability from the Zscaler credentials.
+
+### OIDC Trust Policy Correctness — Per CI Host × Host Cloud
+
+| CI host          | Host cloud         | Expected `aud`                                | Where to pin `sub`                                        |
+| ---------------- | ------------------ | --------------------------------------------- | --------------------------------------------------------- |
+| GitHub Actions   | AWS                | `sts.amazonaws.com`                           | `repo:<org>/<repo>:ref:refs/heads/<branch>`                |
+| GitHub Actions   | Azure              | `api://AzureADTokenExchange`                  | `repo:<org>/<repo>:environment:<env>`                      |
+| GitHub Actions   | GCP                | value passed via `audience` parameter         | repo + ref or environment                                  |
+| GitHub Actions   | Terraform Cloud    | `terraform.io` (configured per workspace)     | `organization:<org>:project:<proj>:workspace:<ws>:run_phase:<plan\|apply>` |
+| GitLab CI        | AWS                | matches `$CI_SERVER_URL`                      | project path + ref                                         |
+| GitLab CI        | Azure              | `api://AzureADTokenExchange`                  | project path + ref                                         |
+| GitLab CI        | GCP                | value passed via `audience` parameter         | project path + ref                                         |
+
+Rules:
+
+- ✅ Pin `aud` to the exact value from the table.
+- ✅ Pin `sub` to a specific repo + branch or environment — never wildcards across an org.
+- ❌ `sub` wildcards like `repo:*:*` or `repo:<org>/*:ref:*` let any repo assume the role.
+- ❌ Mismatched `aud` → token rejected with an opaque error; fix `aud` per the table, do not relax `sub`.
+
+### Example — GitHub Actions → AWS S3 backend + Zidentity OneAPI
+
+Two distinct credential paths in one job. Keep them as separate steps; do not mix env-var namespaces.
+
+```yaml
+permissions:
+  id-token: write   # required for OIDC to AWS AND to Zidentity (if your tenant supports it)
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Step 1: federate to AWS for S3 backend access
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/zscaler-tf-prod
+          aws-region: us-east-1
+          # No static AWS keys — token exchange only.
+
+      # Step 2: provide Zidentity OneAPI credentials to the Zscaler provider
+      - uses: hashicorp/setup-terraform@v3
+      - name: Apply
+        env:
+          ZSCALER_CLIENT_ID:     ${{ secrets.ZSCALER_CLIENT_ID }}
+          ZSCALER_CLIENT_SECRET: ${{ secrets.ZSCALER_CLIENT_SECRET }}
+          ZSCALER_VANITY_DOMAIN: ${{ vars.ZSCALER_VANITY_DOMAIN }}
+          ZPA_CUSTOMER_ID:       ${{ vars.ZPA_CUSTOMER_ID }}
+        run: terraform apply tfplan
+```
+
+### Example — GitHub Actions → GCS backend + Zidentity OneAPI
+
+```yaml
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Step 1: federate to GCP for GCS backend access
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/123/locations/global/workloadIdentityPools/github/providers/github
+          service_account: zscaler-tf-prod@acme-prod.iam.gserviceaccount.com
+
+      # Step 2: Zidentity OneAPI credentials (same as above)
+      - uses: hashicorp/setup-terraform@v3
+      - name: Apply
+        env:
+          ZSCALER_CLIENT_ID:     ${{ secrets.ZSCALER_CLIENT_ID }}
+          ZSCALER_CLIENT_SECRET: ${{ secrets.ZSCALER_CLIENT_SECRET }}
+          ZSCALER_VANITY_DOMAIN: ${{ vars.ZSCALER_VANITY_DOMAIN }}
+        run: terraform apply tfplan
+```
+
+### Example — GitHub Actions → Azure Storage backend + Zidentity OneAPI
+
+```yaml
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Step 1: federate to Azure for storage-account access
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          # federated credential pinned to repo + environment
+
+      # Step 2: Zidentity OneAPI credentials
+      - uses: hashicorp/setup-terraform@v3
+      - name: Apply
+        env:
+          ARM_USE_OIDC:          true   # Azure backend consumes the federated token
+          ZSCALER_CLIENT_ID:     ${{ secrets.ZSCALER_CLIENT_ID }}
+          ZSCALER_CLIENT_SECRET: ${{ secrets.ZSCALER_CLIENT_SECRET }}
+          ZSCALER_VANITY_DOMAIN: ${{ vars.ZSCALER_VANITY_DOMAIN }}
+        run: terraform apply tfplan
+```
+
+❌ Putting AWS / Azure / GCP static keys in `secrets.*` when OIDC federation is available on your CI host.
+❌ Reusing the same trust policy for plan and apply jobs — pin `sub` separately so the apply role cannot be assumed from a plan-only context.
+❌ Mixing the Zscaler env-var namespace with the cloud-provider env-var namespace in shell `export`s — keep each in its own step.
+✅ Two separate credential steps per job. State-backend auth ≠ Zscaler API auth.
+✅ Drift-detection jobs that only need plan-time read access can use a separate, less-privileged trust policy and a read-only AWS / Azure / GCP role.
+
 ## Plan-Artifact Discipline
 
 The plan you apply must be the plan that was reviewed. Do not re-run `plan` inside the apply job.

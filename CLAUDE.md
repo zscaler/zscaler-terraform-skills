@@ -86,7 +86,7 @@ Each `skills/<product>/SKILL.md` MUST include:
 | Frontmatter                   | `name`, `description` (triggering), `license`, `metadata.version`.        |
 | Response Contract             | Assumptions, provider version floor, risk, chosen remediation, validation, rollback. |
 | Workflow                      | Capture context → Diagnose → Load reference → Propose → Validate → Emit.  |
-| Diagnose Before You Generate  | Routing table from failure category → reference anchor.                   |
+| Diagnose Before You Generate  | Routing table from failure category → reference anchor. **Must include a row that routes to `best-practices-skill/references/cross-product-equivalents.md` when the prompt mentions more than one Zscaler product.** |
 | Capture-context fields        | Provider version, auth mode, microtenant_id (ZPA), customer ID, cloud.    |
 | Reference index               | One bullet per `references/*.md`.                                         |
 
@@ -184,4 +184,6 @@ Markdown style is enforced by `markdownlint-cli` against `.markdownlint.json` (i
 - [ ] No skill `name:` field renamed without `feat!:` (breaks `gh skill install … <name> --pin v…`)
 - [ ] If a new resource attribute appears in HCL, it is verifiable in the provider's `docs/resources/<name>.md`
 - [ ] `tests/baseline-scenarios.md` updated if behaviour for an existing scenario changes
+- [ ] **If a new diagnose row is added to any `SKILL.md`, a paired baseline scenario is added in `tests/baseline-scenarios.md` AND a paired row is added in `tests/rationalization-table.md` (status starts `❌` if no guard exists yet, promotes to `✅` once the scenario passes)**
+- [ ] **If a cross-product or cross-cloud topic is added, cross-link to `best-practices-skill/references/cross-product-equivalents.md` (or `references/state-management.md#backend-choice--per-host-cloud` for host-cloud splits) instead of duplicating tables in per-product skills**
 - [ ] Commit subject uses a [conventional commit](https://www.conventionalcommits.org/) prefix (`feat:` for new content, `fix:` for corrections, `docs:` for repo-internal docs only, `chore:` for tooling) so semantic-release picks the right bump on merge — **do not edit version numbers by hand**
