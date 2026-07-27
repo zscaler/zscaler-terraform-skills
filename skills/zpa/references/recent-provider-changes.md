@@ -1,8 +1,31 @@
 # ZPA — Recent Provider Changes
 
-*Auto-generated from `terraform-provider-zpa/CHANGELOG.md` — last updated 2026-07-06.*
+*Auto-generated from `terraform-provider-zpa/CHANGELOG.md` — last updated 2026-07-27.*
 
 Curated subset of recent provider releases that affect HCL users. Internal SDK bumps, library upgrades, and pure refactors are filtered out. Always cross-reference the full upstream changelog at <https://github.com/zscaler/terraform-provider-zpa/blob/master/CHANGELOG.md>.
+
+## v4.4.9 — July 24, 2026
+
+### Enhancements
+
+- [PR #675](https://github.com/zscaler/terraform-provider-zpa/pull/675) Removed `omitempty` tag from attribute boolean value `bypass_on_reauth` on ZPA `applicationsegment` and `applicationsegmentbrowseraccess`
+- [PR #675](https://github.com/zscaler/terraform-provider-zpa/pull/675) Added support to attribute `devicePosture_failure_notification_enabled` on resources `zpa_policy_access_rule_v2` and `zpa_policy_access_rule`.
+
+## v4.4.8 — July 20, 2026
+
+### Enhancements
+
+- [PR #673](https://github.com/zscaler/terraform-provider-zpa/pull/673) Added new `privileged_portal_capabilities` options `JOIN_SESSION`, and `CONTROL_SESSION` to resource `zpa_policy_capabilities_rule`
+
+## v4.4.7 — July 15, 2026
+
+### Enhancements
+
+- [PR #671](https://github.com/zscaler/terraform-provider-zpa/pull/671) Added new `privileged_portal_capabilities` options `UPLOAD_INSPECTED_SANDBOX`, and `UPLOAD_INSPECTED_SCAN` to resource `zpa_policy_portal_access_rule`
+
+### Bug Fixes
+
+- [PR #671](https://github.com/zscaler/terraform-provider-zpa/pull/671) - Fixed a provider panic ([Issue #670](https://github.com/zscaler/terraform-provider-zpa/issues/670)) caused by an unguarded error type assertion in the read functions of `zpa_application_segment`, `zpa_server_group`, `zpa_service_edge_group`, and `zpa_lss_config_controller`. Transient API errors (e.g. cancelled/timed-out requests) are now surfaced as recoverable Terraform errors instead of crashing the provider.
 
 ## v4.4.6 — June 30, 2026
 
@@ -64,21 +87,3 @@ Curated subset of recent provider releases that affect HCL users. Internal SDK b
 - [PR #629](https://github.com/zscaler/terraform-provider-zpa/pull/629) - Added `enrollment_cert_id` and `user_codes` attributes to `zpa_service_edge_group` to support OAuth2 enrollment via user code verification API.
 - [PR #629](https://github.com/zscaler/terraform-provider-zpa/pull/629) - Marked `provisioning_key` attribute as sensitive in `zpa_provisioning_key` resource and data source to prevent exposure in logs and console output; value remains accessible via `terraform output` and resource references.
 - [PR #629](https://github.com/zscaler/terraform-provider-zpa/pull/629) - Added boolean `policy_style` attribute to `zpa_application_segment` to enable `FQDN-to-IP Policy Evaluation`
-
-## v4.3.8 — January, 23 2025
-
-### Bug Fixes
-
-- [PR #625](https://github.com/zscaler/terraform-provider-zpa/pull/625) - Fixed `zpa_segment_group` and `zpa_app_connector_group` detachment function to ensure it removes the resource correctly from all supported access policies during apply and destruction process.
-
-## v4.3.7 — January, 21 2025
-
-### Bug Fixes
-
-- [PR #624](https://github.com/zscaler/terraform-provider-zpa/pull/624) - Fixed `zpa_segment_group` detachment function to ensure it removes the resource correctly from all supported access policies during destruction process.
-
-## v4.3.6 — January, 19 2025
-
-### Bug Fixes
-
-- [PR #619](https://github.com/zscaler/terraform-provider-zpa/pull/619) - Fixed `zpa_policy_access_rule` and `zpa_policy_access_rule_v2` update function to reconstruct deleted resources
