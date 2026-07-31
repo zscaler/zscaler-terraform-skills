@@ -39,13 +39,39 @@ Optional but common:
 
 ## Module Boundary Rules
 
-- ❌ One module that mixes `zia_*` + `zpa_*` + `ztc_*` resources — different lifecycles, different activation, different tenants likely.
-- ❌ One module that mixes `zscaler/*` + a non-Zscaler provider (`aws_*`, `azurerm_*`) — split per provider.
-- ❌ A "kitchen-sink" Zscaler module that orchestrates every product feature.
-- ✅ One module = one logical Zscaler-API grouping created and destroyed together.
-- ✅ Compose multiple focused modules in a root config.
+The boundary is **purpose**, not product. Most single-purpose modules happen to touch one product, but a module implementing a feature that genuinely spans two products legitimately declares two providers.
 
-Common naming for module directories: `zpa-application`, `zia-url-filtering`, `ztc-traffic-forwarding`, `zcc-trusted-network`. Kebab-case, prefix with provider.
+- ❌ One module that bundles *unrelated* `zia_*` + `zpa_*` + `ztc_*` resources — different lifecycles, different activation, different tenants likely.
+- ❌ A "kitchen-sink" Zscaler module that orchestrates every product feature.
+- ✅ One module = one logical grouping created and destroyed together.
+- ✅ Compose multiple focused modules in a root config.
+- ✅ Multiple providers in one module **when one feature requires it** — declare both in `required_providers`, configure neither.
+
+### Legitimate cross-product modules
+
+Some ZIA resources are defined by identifiers that only the ZPA provider can supply, so a module implementing that integration needs both:
+
+| Feature | ZIA resource | Needs from ZPA |
+| --- | --- | --- |
+| IP Source Anchoring | `zia_forwarding_control_zpa_gateway` | `external_id` of a server group and application segments (`zpa_server_group` / `zpa_application_segment`) |
+| Forwarding to ZPA | `zia_forwarding_control_rule` (`forward_method = "ZPA"`) | the gateway above |
+
+```hcl
+# modules/zia-zpa-source-ip-anchoring/versions.tf — one purpose, two providers
+terraform {
+  required_providers {
+    zia = { source = "zscaler/zia", version = "~> 4.0" }
+    zpa = { source = "zscaler/zpa", version = "~> 4.0" }
+  }
+}
+# no provider blocks — the root authenticates both tenants
+```
+
+The test: can you describe the module in one sentence without using the word "and"? If yes, the provider count does not matter.
+
+❌ Splitting a cross-product feature into two modules purely to satisfy "one product per module" — you end up passing opaque IDs between them for no benefit.
+
+Common naming for module directories: `zpa-application`, `zia-url-filtering`, `zia-zpa-source-ip-anchoring`, `ztc-traffic-forwarding`, `zcc-trusted-network`. Kebab-case, named for what the module does.
 
 ## Composition Pattern (Root Module)
 
@@ -160,11 +186,22 @@ data "terraform_remote_state" "zpa_platform" {
 }
 
 resource "zia_forwarding_control_zpa_gateway" "this" {
-  zpa_app_segments = [
-    data.terraform_remote_state.zpa_platform.outputs.crm_app_segment_id,
-  ]
+  name = "zpa-gw-crm"
+  type = "ZPA"
+
+  zpa_server_group {
+    external_id = data.terraform_remote_state.zpa_platform.outputs.crm_server_group_id
+    name        = data.terraform_remote_state.zpa_platform.outputs.crm_server_group_name
+  }
+
+  zpa_app_segments {
+    external_id = data.terraform_remote_state.zpa_platform.outputs.crm_app_segment_id
+    name        = data.terraform_remote_state.zpa_platform.outputs.crm_app_segment_name
+  }
 }
 ```
+
+`zpa_server_group` and `zpa_app_segments` are blocks, each requiring both `external_id` and `name`, so the ZPA-side state must export both values. If the two products are owned by the same team, skip the remote-state hop and read the ZPA data sources directly in one module — see [Module Boundary Rules](#module-boundary-rules).
 
 ❌ Merging two states to avoid the cross-reference.
 ✅ One state per ownership boundary; `terraform_remote_state` for ID handoff. See [State Management](state-management.md).

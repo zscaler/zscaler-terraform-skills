@@ -8,7 +8,8 @@ Pipeline shape, secret handling, and the **Zscaler-specific activation step** th
 | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | Single state, single provider                             | One pipeline: validate → plan-on-PR → apply-on-merge → activate                                     | Activation as a final step in the same job (ZIA / ZTC).                                            |
 | Per-product states (ZPA, ZIA, ZTC, ZCC)                   | One pipeline per product, triggered by path filter                                                  | Independent cadences. Each product's apply runs the activation for its own state (ZIA/ZTC).        |
-| Per-microtenant states                                    | One matrix job per microtenant in the product pipeline                                              | Lock-safe (separate states). Use `concurrency:` per microtenant key.                               |
+| Per-microtenant states                                    | One matrix job per microtenant in the product pipeline                                              | ZPA only. Lock-safe (separate states). Use `concurrency:` per microtenant key.                      |
+| **Several ZIA / ZTC states, one tenant**                  | Parallel `plan`; `apply` serialised with `max-parallel: 1`; **one** activate job gated on all applies | Tenant has one write lock and one activation queue. Key `concurrency` on the tenant. [Details](#zia--ztc--serialise-on-the-tenant) |
 | Atlantis / Spacelift                                       | Stack per state                                                                                     | Activation is a `terragrunt`/stack-level run after apply, not a separate workflow.                 |
 | Terraform Cloud / Enterprise                              | Workspace per state, run-trigger to chain activate workspace                                         | Use a separate workspace for activation and a run-trigger from the policy workspace.               |
 
@@ -18,13 +19,44 @@ Pipeline shape, secret handling, and the **Zscaler-specific activation step** th
 2. **Scan** — `trivy config`, `checkov`. Runs on every PR.
 3. **Plan** — `terraform plan -out=tfplan`, save artifact. Posted as PR comment for review.
 4. **Apply** — `terraform apply tfplan` against the **reviewed plan artifact**. Never re-runs `plan` inside the apply job.
-5. **Activate (ZIA / ZTC only)** — verify the `zia_activation_status` / `ztc_activation_status` resource was applied and is in `ACTIVE` state. ZPA and ZCC have no activation step.
+5. **Activate (ZIA / ZTC only)** — run the `ziaActivator` / `ztcActivator` binary once, as its own stage. If the configuration manages activation in HCL instead, verify the `zia_activation_status` / `ztc_activation_status` resource was applied and is in `ACTIVE` state. ZPA and ZCC have no activation step.
 
 ## Activation as a Pipeline Stage
 
-This is what makes Zscaler CI non-generic. After `apply` succeeds for `zia_*` or `ztc_*` resources, the changes are **draft** in the Zscaler tenant until activation. There are three patterns; pick one.
+This is what makes Zscaler CI non-generic. After `apply` succeeds for `zia_*` or `ztc_*` resources, the changes are **draft** in the Zscaler tenant until activation.
 
-### Pattern A — Activation in the same state (default; recommended for most teams)
+Three facts drive the choice of pattern:
+
+- **Activation is tenant-wide.** One call publishes every pending change in the tenant. No pipeline ever needs more than one activation call per run — including a pipeline that applies several states.
+- **Activation queues behind other editors.** While any other administrator or API session holds unactivated changes, an activation call is queued rather than published, and a queued activation cannot be cancelled. So a per-state activation does not publish that state's changes independently; it waits for every other session, and then publishes their pending work too — including from a run that is still in flight or that failed halfway.
+- **The activation endpoint is tightly rate limited** — 10 POST requests per minute and 40 per hour on ZIA. Any design that activates per-resource will hit this.
+
+### Pattern A — Out-of-band activator as a dedicated stage (recommended)
+
+Build the product's activator binary (`ziaActivator` / `ztcActivator`) and run it once after apply:
+
+```yaml
+- run: terraform apply -auto-approve tfplan
+- name: Activate configuration
+  run: ziaActivator      # ztcActivator for ZTC
+```
+
+Exactly one activation call per run, timing under explicit control, and — critically — the activation step cannot fall out of step with the resource graph as the configuration grows. This is the right default for any pipeline and the only sane option once the configuration is built from modules. The activator reads the same credentials as the provider, so it needs no separate secret wiring.
+
+Adding an approval gate is natural in this shape, because activation is already its own job:
+
+```yaml
+jobs:
+  apply:
+    # … terraform apply tfplan
+  activate:
+    needs: apply
+    environment: prod-activation  # GitHub environment with required reviewers
+    steps:
+      - run: ziaActivator
+```
+
+### Pattern B — Activation in the same state
 
 ```hcl
 # main.tf — alongside your zia_* resources
@@ -39,30 +71,27 @@ resource "zia_activation_status" "this" {
 }
 ```
 
-CI: a single `terraform apply tfplan` activates everything atomically. Simple, auditable, no extra wiring.
+CI: a single `terraform apply tfplan` activates everything atomically, and the activation is visible in `terraform plan`. Reasonable for a single flat state that owns all its resources.
+
+The limitation is `depends_on`, which cannot be inferred: every resource must be listed, and one you forget may be applied *after* activation and silently left draft. In module-based configurations you end up depending on whole modules and maintaining that list forever — prefer Pattern A there.
 
 ❌ Don't list `depends_on` selectively to "stage" activation — partial activation isn't a thing in ZIA. Either everything in the state activates or you're in an inconsistent state.
-
-### Pattern B — Two-stage pipeline (apply first, activate as a separate stage)
-
-When the activation needs a manual approval gate between resource changes and console push, split the activation into a follow-on workflow that an approver triggers explicitly. Same state, two CI jobs:
-
-```yaml
-jobs:
-  apply:
-    # … terraform apply tfplan (without zia_activation_status)
-  activate:
-    needs: apply
-    environment: prod-activation  # GitHub environment with required reviewers
-    steps:
-      - run: terraform apply -target=zia_activation_status.this
-```
-
-Tradeoff: the audit log shows two events per change, and the window between apply-and-activate is observable in the Zscaler tenant as "draft" state.
 
 ### Pattern C — Manual console activation (sandbox / break-glass only)
 
 Acceptable for sandbox tenants or genuine emergencies. Document the manual step in the PR description. **Never** do this in production CI without an explicit incident exception — there's no audit trail.
+
+### ❌ Anti-pattern — `ZIA_ACTIVATION=true` in a pipeline
+
+Activates in-flight after every create, update, and delete. Because activation is tenant-wide, every call but the last is redundant, and a few dozen resources will exhaust the 40/hour budget inside one apply. The run doesn't fail — rate-limited requests are retried automatically — it just decelerates to the pace of the activation limit. Treat the variable as legacy and leave it unset.
+
+### Session timeout affects long pipelines
+
+ZIA activates pending changes **when a session ends**, including when it ends by hitting the API session timeout (5–20 minutes, default 5). A pipeline whose apply runs longer than the timeout will have changes activated part-way through, before the rest of the configuration is written. The provider re-authenticates and the run continues, so nothing errors — but activation happened at a moment nobody chose.
+
+Raise it to 20 — either in the ZIA Admin Portal under **Administration > Advanced Settings** → **API Session Timeout Duration (In Minutes)** ([docs](https://help.zscaler.com/zia/configuring-advanced-settings#session-timeout)), or via the `api_session_timeout` attribute on `zia_advanced_settings` — and keep individual runs short by splitting large configurations across smaller states. The behaviour is native to the platform and cannot be overridden by the provider, so run duration is the real lever.
+
+**ZTC is stricter: there is no adjustable session timeout.** ZTC exposes no equivalent setting in the provider or the tenant, so for ZTC pipelines short runs are the only mitigation and splitting large configurations across smaller states is mandatory rather than advisory.
 
 ## Secret Handling
 
@@ -297,6 +326,36 @@ jobs:
 ```
 
 `concurrency.group` per-microtenant prevents two apply jobs against the same microtenant state from racing; `cancel-in-progress: false` keeps the in-flight apply from being aborted by a newer push.
+
+### ZIA / ZTC — Serialise on the Tenant
+
+**Do not copy the ZPA matrix above for ZIA or ZTC.** It is safe on ZPA because ZPA has no tenant-wide write lock and no activation step. ZIA and ZTC have both, so multiple states against one tenant must apply **one at a time**:
+
+```yaml
+jobs:
+  apply:
+    strategy:
+      matrix:
+        state: [firewall-rules, url-filtering, dlp, locations]
+      max-parallel: 1                      # applies run one at a time
+    concurrency:
+      group: zia-apply-${{ inputs.tenant }}  # key on the TENANT, not the state
+      cancel-in-progress: false
+    steps:
+      - run: terraform apply tfplan
+        working-directory: infrastructure/zia/prod/${{ matrix.state }}
+
+  activate:
+    needs: apply                            # once, after every state is applied
+    steps:
+      - run: ziaActivator
+```
+
+Two details matter. The concurrency key must be the tenant, because two different repos or pipelines pointing at the same tenant still collide. And activation is a single job gated on `needs: apply`, not a step inside each matrix leg.
+
+`plan` jobs can still run fully parallel — reads do not take the write lock, so PR feedback is unaffected. Only `apply` needs the mutex.
+
+Concurrent ZIA applies produce `EDIT_LOCK_NOT_AVAILABLE` / `Failed during enter Org barrier`, which the provider retries — so the failure looks like a slow pipeline rather than a conflict. See [State Management: Concurrency Is a Tenant Property](state-management.md#concurrency-is-a-tenant-property-not-a-state-property).
 
 ## GitLab CI Sketch
 

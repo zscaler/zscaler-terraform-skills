@@ -35,7 +35,7 @@ provider "zpa" {
 }
 ```
 
-### Legacy v3 (pre-Zidentity, GOV, `zscalerten`)
+### Legacy v3 (pre-Zidentity tenants, and ZTC FedRAMP)
 
 ```hcl
 provider "zia" {

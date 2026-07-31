@@ -41,8 +41,8 @@ Never recommend `terraform apply` against a production ZIA tenant without a revi
 | Field             | Why it matters                                                                                              | Default if missing                |
 | ----------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------- |
 | Provider version  | Resource catalog and rule-order validation differ between v3 (legacy) and v4+ (OneAPI). `~> 4.0` minimum.   | Assume `~> 4.0` and state it.     |
-| **Auth mode**     | **OneAPI and legacy v3 are both first-class.** Tenant must be migrated to Zidentity for OneAPI; otherwise legacy is the only option. `zscalergov` / `zscalerten` are legacy-only. | **Ask. Do not default.** State both options if unclear. |
-| Cloud target      | OneAPI: `zscaler_cloud` is **optional** and only set for non-prod (e.g. `beta`). Legacy: `zia_cloud` is required and names the cloud (`zscaler`, `zscloud`, `zscalergov`, …). | **Omit `zscaler_cloud` for production OneAPI.** Ask for legacy. |
+| **Auth mode**     | **OneAPI and legacy v3 are both first-class.** Tenant must be migrated to Zidentity for OneAPI; otherwise legacy is the only option. FedRAMP clouds work on **either** path — OneAPI from `v4.7.25`. | **Ask. Do not default.** State both options if unclear. |
+| Cloud target      | OneAPI: `zscaler_cloud` is **optional** for commercial production; set `gov` / `govus` for FedRAMP, `beta` for non-prod. Legacy: `zia_cloud` is required and names the cloud (`zscaler`, `zscloud`, `zscalergov`, …). | **Omit `zscaler_cloud` for commercial production OneAPI.** Ask for legacy. |
 | Activation        | **ANY** create/update/delete on a ZIA resource needs `zia_activation_status`. Pure data-source workflows do not. | If any resource is touched: include activation. Always. |
 | Rule ordering     | Order is enforced server-side and must be `>= 1` and contiguous.                                             | Ask if rule order matters.        |
 | Terraform runtime | Affects `optional()`, `moved`, `import`, `removed` availability.                                            | Assume `terraform ~> 1.9`.        |
@@ -51,7 +51,7 @@ Never recommend `terraform apply` against a production ZIA tenant without a revi
 
 | Failure category               | Symptoms                                                                                                            | Primary references                                                                                                    |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| **Auth misconfiguration**      | `401 unauthorized`, `vanity_domain not found`, GOV cloud rejecting OneAPI                                           | [Auth & Providers](references/auth-and-providers.md)                                                                  |
+| **Auth misconfiguration**      | `401 unauthorized`, `vanity_domain not found`, `Cloud zscalergov not supported for OneAPI`                           | [Auth & Providers](references/auth-and-providers.md)                                                                  |
 | **Resource catalog mismatch**  | "Does ZIA have a resource for X?", invented attribute names, wrong block structure, plural vs singular resource name | [Resource Catalog](references/resource-catalog.md)                                                                    |
 | **Rule ordering / predefined** | `order = 0` rejected, predefined-rule destroy fails, rules drift after a delete, `Request body is invalid` on PUT    | [Rules & Ordering](references/rules-and-ordering.md)                                                                  |
 | **Activation forgotten**       | `terraform apply` succeeds but policy doesn't change in the ZIA console                                              | [Activation](references/activation.md)                                                                                |
@@ -86,11 +86,11 @@ provider "zia" {
   #   ZSCALER_CLIENT_ID       (required)
   #   ZSCALER_CLIENT_SECRET   (required; or ZSCALER_PRIVATE_KEY)
   #   ZSCALER_VANITY_DOMAIN   (required)
-  #   ZSCALER_CLOUD           (optional — only set for non-prod, e.g. "beta")
+  #   ZSCALER_CLOUD           (optional — "beta" for non-prod, "gov"/"govus" for FedRAMP on v4.7.25+)
 }
 ```
 
-### Legacy v3 (pre-Zidentity tenants, GOV, `zscalerten`)
+### Legacy v3 (pre-Zidentity tenants, or FedRAMP below `v4.7.25`)
 
 ```hcl
 provider "zia" {
@@ -102,7 +102,7 @@ provider "zia" {
 }
 ```
 
-❌ Do not set `zscaler_cloud = "zscaler"` on OneAPI — `zscaler` is a **legacy** cloud name. On OneAPI, omit `zscaler_cloud` entirely for production tenants.
+❌ Do not set `zscaler_cloud = "zscaler"` on OneAPI — `zscaler` is a **legacy** cloud name. On OneAPI, omit `zscaler_cloud` entirely for commercial production tenants. The same applies to `zscalergov`: on OneAPI the FedRAMP values are `gov` and `govus`.
 
 For private-key auth, full env-var matrix, and credential hygiene, see [Auth & Providers](references/auth-and-providers.md).
 
@@ -145,13 +145,26 @@ Full mechanics in [Rules & Ordering](references/rules-and-ordering.md).
 
 **Every** create/update/delete on a ZIA resource produces a draft change that **must** be activated to take effect. This includes "metadata-only" objects like `zia_rule_labels`, `zia_url_categories`, `zia_dlp_dictionary`, locations, departments, and admin users — there is no resource type in ZIA that bypasses activation. Only **pure data-source workflows** (read-only) skip it.
 
-| Pattern                              | When                                                                                          |
-| ------------------------------------ | --------------------------------------------------------------------------------------------- |
-| Manage `zia_activation_status` in TF | Atomic per-apply activation — recommended for CI/CD.                                          |
-| Manual activation in console         | Acceptable for ad-hoc / emergency changes; document the step in the PR.                       |
-| **Skip activation entirely**         | **Only** when the configuration uses `data "zia_…"` exclusively — no `resource "zia_…"`.       |
+**Activation is tenant-wide, and queues.** One call publishes every pending change in the tenant, so no configuration needs more than one activation call per run. It also does not publish immediately while any other administrator or API session holds unactivated changes — the call is queued until they activate, and cannot be cancelled.
 
-Reference pattern (atomic activation):
+**One apply at a time per tenant.** Every write acquires a single tenant-wide lock, so several states applying concurrently contend for it and produce `EDIT_LOCK_NOT_AVAILABLE`. Splitting state does not split the tenant: serialise `apply` (keyed on the tenant), keep `plan` parallel, and activate once after the last apply. See [Activation](references/activation.md#several-states-one-tenant).
+
+| Pattern                                        | When                                                                                                            |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Out-of-band `ziaActivator` after apply**     | **Recommended.** Any pipeline, and any configuration built from modules. One call, timing under explicit control. |
+| Manage `zia_activation_status` in TF           | A single flat state that owns all its resources. `depends_on` must list **every** resource.                      |
+| **`ziaActivator` once, after the last apply**  | **Several states against one tenant.** Never one activation per state — it queues behind every other session.     |
+| Manual activation in console                   | Acceptable for ad-hoc / emergency changes; document the step in the PR.                                          |
+| ❌ `ZIA_ACTIVATION=true`                       | **Avoid.** Activates per resource change against a 10/min, 40/hr endpoint. Legacy; may be removed.               |
+| **Skip activation entirely**                   | **Only** when the configuration uses `data "zia_…"` exclusively — no `resource "zia_…"`.                         |
+
+Recommended pattern — activation as a pipeline step:
+
+```bash
+terraform apply && ziaActivator
+```
+
+In-HCL alternative, valid for flat configurations:
 
 ```hcl
 resource "zia_url_filtering_rules" "block_gambling" {
@@ -170,7 +183,9 @@ resource "zia_activation_status" "this" {
 }
 ```
 
-See [Activation](references/activation.md) for the full pattern, multi-resource batching, and CI/CD wiring.
+~> Long runs: ZIA activates pending changes **when a session ends**, including on the API session timeout (5–20 min, default 5). An apply longer than the timeout activates part-way through and then re-authenticates — no error, but activation happened unbidden. Raise it to 20, in the Admin Portal under **Administration > Advanced Settings** → *API Session Timeout Duration* or via `api_session_timeout` on `zia_advanced_settings`, and keep runs short. **ZTC has no adjustable equivalent** — short runs are the only mitigation there.
+
+See [Activation](references/activation.md) for the full pattern, multi-resource batching, session-timeout details, and CI/CD wiring.
 
 ## Data-Source-Only Objects
 
@@ -213,7 +228,7 @@ State considerations: the OneAPI client secret is **not** persisted to state. ID
 
 Progressive disclosure — essentials here, depth on demand:
 
-- [Auth & Providers](references/auth-and-providers.md) — OneAPI vs legacy, env vars, GOV / `zscalerten`, multi-tenant aliases, credential hygiene.
+- [Auth & Providers](references/auth-and-providers.md) — OneAPI vs legacy, env vars, FedRAMP clouds (`gov` / `govus`), multi-tenant aliases, credential hygiene.
 - [Resource Catalog](references/resource-catalog.md) — minimum-viable HCL for the most-used `zia_*` resources, composition recipes, data-source lookups.
 - [Rules & Ordering](references/rules-and-ordering.md) — `order` rules, predefined vs custom, contiguous ordering, common 400 errors, per-rule-type field stripping.
 - [Activation](references/activation.md) — `zia_activation_status`, atomic vs manual, CI/CD pattern, gotchas.

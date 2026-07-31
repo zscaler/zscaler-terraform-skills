@@ -6,12 +6,14 @@ How to configure the `zscaler/ztc` provider correctly across auth modes, clouds,
 
 | Goal                                                | Use                              | Tradeoff                                                                     |
 | --------------------------------------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
-| Tenant migrated to Zidentity (most modern tenants)  | OneAPI client credentials        | Requires Zidentity onboarding. Not available on `zscalergov` / `zscalerten`. |
+| Tenant migrated to Zidentity (most modern tenants)  | OneAPI client credentials        | Requires Zidentity onboarding.                                               |
 | OneAPI tenant + JWT-style cert auth                 | OneAPI private key (PEM)         | More setup; supports key rotation without distributing a shared secret.      |
 | Tenant **not** migrated to Zidentity                | Legacy v3 (username + API key)   | Will need to migrate when tenant moves to Zidentity.                         |
-| `zscalergov` / `zscalerten` cloud                   | Legacy v3                        | OneAPI is not supported on these clouds.                                     |
+| FedRAMP cloud (`zscalergov` / `zscalerten`)         | Legacy v3                        | OneAPI FedRAMP support is **not yet in a released ZTC version** — see below.  |
 
 If the user does not say which they have, **ask**. Do not silently default to OneAPI — many production tenants are still on legacy.
+
+⚠️ **FedRAMP on ZTC differs from ZIA and ZPA.** Those two providers support the government clouds over OneAPI (`zscaler_cloud = "gov"` / `"govus"`, from ZIA `v4.7.25` and ZPA `v4.4.6`). ZTC does not yet ship that support in a released version — the latest release is `v0.2.1`, and it requires a future release. So for ZTC today, a government tenant uses legacy auth. Do **not** carry the ZIA guidance across, and do not tell a customer to set `zscaler_cloud = "gov"` on ZTC yet. Re-check the ZTC changelog before advising, since this is expected to change.
 
 ## Cloud Selector — Two Different Attributes
 
@@ -36,8 +38,8 @@ If the user does not say which they have, **ask**. Do not silently default to On
 | `zscalerone`    | Commercial cloud.                                                     |
 | `zscalertwo`    | Commercial cloud.                                                     |
 | `zscalerthree`  | Commercial cloud.                                                     |
-| `zscalergov`    | US Federal cloud (legacy-only).                                       |
-| `zscalerten`    | US Federal high-security cloud (legacy-only).                         |
+| `zscalergov`    | US Federal cloud. Legacy-only on ZTC today (unlike ZIA / ZPA).         |
+| `zscalerten`    | US Federal high-security cloud. Legacy-only on ZTC today.             |
 | `zspreview`     | Internal preview environment (legacy only).                           |
 
 ## Provider Block — OneAPI Client Credentials
@@ -116,7 +118,7 @@ Equivalent env vars:
 | Argument           | Default | When to set                                                                                          |
 | ------------------ | ------- | ---------------------------------------------------------------------------------------------------- |
 | `http_proxy`       | unset   | Local caching proxy / corporate egress (`ZSCALER_HTTP_PROXY` env).                                   |
-| `parallelism`      | `1`     | Increase carefully — ZTC is rate-limited; the default is intentional. Most users should leave at 1.  |
+| `parallelism`      | `1`     | Has no effect — the value is read but never applied. Do not set it. Rate limiting is handled by automatic `Retry-After` retries. |
 | `max_retries`      | `5`     | Lower for fast-fail environments; raise for flaky network paths.                                     |
 | `request_timeout`  | `0` (no limit) | Set in seconds (max 300) when running behind aggressive idle-timeout middleware.                |
 
@@ -192,6 +194,6 @@ jobs:
 | --------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | `401 unauthorized` immediately on init/plan         | Wrong credentials, or wrong `vanity_domain` for the tenant.                            | Verify in Zidentity console.                                                 |
 | `vanity_domain not found`                           | Typo, or tenant not migrated to Zidentity.                                              | Confirm in Zidentity; if not migrated, switch to legacy auth.                |
-| `Cloud zscalergov not supported for OneAPI`         | Tenant on GOV / `zscalerten` but provider configured for OneAPI.                       | Switch to legacy auth (`use_legacy_client = true`).                          |
+| `Cloud zscalergov not supported for OneAPI`         | Government tenant configured for OneAPI. ZTC has no released FedRAMP OneAPI support (unlike ZIA / ZPA). | Switch to legacy auth (`use_legacy_client = true`) with `ztc_cloud = "zscalergov"`. |
 | `403 access denied` on a specific resource          | The OneAPI client lacks the role/scope needed for that resource.                       | Re-issue the OneAPI client with the right role; check Zidentity role mapping.|
-| `429 too many requests`                             | `parallelism` too high.                                                                 | Reduce `parallelism` back to `1`.                                            |
+| `429 too many requests`                             | Normal rate limiting on a bulk apply.                                                   | No action needed — the provider honours `Retry-After` and retries. Do not lower `-parallelism`. |

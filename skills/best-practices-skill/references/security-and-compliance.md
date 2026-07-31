@@ -157,7 +157,7 @@ GitHub Actions: use `actions/upload-artifact` with `retention-days` set to your 
 | ISO 27001 A.12.1.2 (change management)         | CHANGELOG, conventional commits, semver-tagged releases of any internal modules.                                          |
 | PCI DSS 3.2.1 §10 (audit logging)              | CI logs + plan artifacts retained; activation events linked to PR + reviewer.                                             |
 | HIPAA §164.312(b) (audit controls)             | Same as PCI §10; ensure tenant-level audit logs in Zscaler are also retained.                                             |
-| FedRAMP / GovCloud                             | Use `zscalergov` legacy cloud (no OneAPI yet for GOV); state stored in FedRAMP-authorized backend (e.g. S3 GovCloud).      |
+| FedRAMP / GovCloud                             | ZIA (`v4.7.25`+) and ZPA (`v4.4.6`+) authenticate over OneAPI with `zscaler_cloud = "gov"` / `"govus"`; ZTC has no released FedRAMP OneAPI support, so use legacy `zscalergov`. State stored in a FedRAMP-authorized backend (e.g. S3 GovCloud). |
 
 ## Rules — Compliance
 

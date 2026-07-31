@@ -6,12 +6,15 @@ How to configure the `zscaler/zpa` provider correctly across auth modes, clouds,
 
 | Goal                                                | Use                              | Tradeoff                                                                  |
 | --------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------- |
-| Tenant migrated to Zidentity (most modern tenants)  | OneAPI client credentials        | Requires Zidentity onboarding; not available on `GOV` / `GOVUS` clouds.   |
+| Tenant migrated to Zidentity (most modern tenants)  | OneAPI client credentials        | Requires Zidentity onboarding.                                            |
 | OneAPI tenant + JWT-style cert auth                 | OneAPI private key (JWK)         | More setup; supports key rotation without distributing a shared secret.   |
 | Tenant **not** migrated to Zidentity                | Legacy v3 client credentials     | Will need to migrate when tenant moves to Zidentity.                      |
-| GOV / GOVUS cloud                                   | Legacy v3 client credentials     | OneAPI is not supported on these clouds (as of provider v4.x).            |
+| FedRAMP cloud, provider `>= v4.4.6`                 | OneAPI + `zscaler_cloud = "gov"` or `"govus"` | Requires Zidentity onboarding in the government environment. |
+| FedRAMP cloud, provider `< v4.4.6`                  | Legacy v3 + `zpa_cloud = "GOV"` / `"GOVUS"` | Upgrade the provider to move onto OneAPI.                      |
 
 If the user does not say which they have, **ask**. Do not silently default to OneAPI — many production tenants are still on legacy.
+
+⚠️ **The "GOV is legacy-only" rule is obsolete.** OneAPI supports the FedRAMP clouds from provider `v4.4.6` onward, served by a dedicated Zidentity identity provider and API gateway. Do not route a government tenant to legacy auth on the basis of its cloud alone — check the pinned provider version first. Note that the two auth paths name these environments differently: OneAPI uses lowercase `gov` / `govus` in `zscaler_cloud`, while legacy uses uppercase `GOV` / `GOVUS` in `zpa_cloud`.
 
 ## Cloud Selector — Two Different Attributes
 
@@ -21,10 +24,12 @@ If the user does not say which they have, **ask**. Do not silently default to On
 
 | Value     | When                                                                                            |
 | --------- | ----------------------------------------------------------------------------------------------- |
-| *(unset)* | **Default — production Zidentity.** Use this for all production tenants.                        |
+| *(unset)* | **Default — production commercial Zidentity.** Use this for all production commercial tenants.   |
 | `beta`    | Zidentity beta environment, for pre-release validation. Never set for production state.          |
+| `gov`     | FedRAMP cloud (`zidentitygov.net`). Requires provider `>= v4.4.6`.                              |
+| `govus`   | FedRAMP cloud (`zidentitygov.us`). Requires provider `>= v4.4.6`.                               |
 
-❌ Do not pass legacy `zpa_cloud` values (`PRODUCTION`, `BETA`, `ZPATWO`, `GOV`, …) to `zscaler_cloud`. They are not valid Zidentity environments. ✅ Omit `zscaler_cloud` entirely for production OneAPI.
+❌ Do not pass legacy `zpa_cloud` values (`PRODUCTION`, `BETA`, `ZPATWO`, …) to `zscaler_cloud`. They are not valid Zidentity environments. The FedRAMP clouds are the one place the two vocabularies nearly collide: legacy takes uppercase `GOV` / `GOVUS`, OneAPI takes lowercase `gov` / `govus`. ✅ Omit `zscaler_cloud` entirely for commercial production OneAPI.
 
 ### Legacy: `zpa_cloud` — REQUIRED only when not `PRODUCTION`
 
@@ -33,8 +38,8 @@ If the user does not say which they have, **ask**. Do not silently default to On
 | *(unset)*     | **Default — `PRODUCTION`.** Omit on production tenants.                       |
 | `BETA`        | Pre-release features; for testing only — never for production state.          |
 | `ZPATWO`      | Specific commercial cloud — set if your tenant is provisioned on it.          |
-| `GOV`         | US Federal cloud (legacy-only).                                               |
-| `GOVUS`       | US Federal high-security cloud (legacy-only).                                 |
+| `GOV`         | US Federal cloud. Legacy value — on OneAPI use lowercase `gov` in `zscaler_cloud`.   |
+| `GOVUS`       | US Federal high-security cloud. Legacy value — on OneAPI use lowercase `govus`.      |
 | `PREVIEW`     | Internal preview cloud.                                                        |
 
 ## Provider Block — OneAPI Client Credentials
@@ -208,6 +213,6 @@ The apply job pulls the plan artifact and runs `terraform apply tfplan` — **ne
 | --------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `401 unauthorized` immediately on init/plan         | Wrong `client_id` / `client_secret`, or wrong `vanity_domain` for the tenant.          | Verify in Zidentity console; confirm `vanity_domain` is the prefix (no `.zscalerportal.net`). |
 | `vanity_domain not found`                           | Typo in `vanity_domain`, or tenant not migrated to Zidentity.                          | Confirm in Zidentity; if not migrated, switch to legacy auth.                  |
-| `Cloud GOV not supported for OneAPI`                | Tenant is on GOV/GOVUS but provider is configured for OneAPI.                          | Switch to legacy auth (`use_legacy_client = true`).                            |
+| `Cloud GOV not supported for OneAPI`                | A legacy uppercase cloud value was passed to `zscaler_cloud`. OneAPI uses lowercase `gov` / `govus`. | Set `zscaler_cloud = "gov"` (or `"govus"`) on provider `>= v4.4.6`. Only below that version is legacy auth the answer. |
 | `customer_id required`                              | Forgot `ZPA_CUSTOMER_ID` env or `customer_id` in provider block.                       | Set it.                                                                        |
 | `403 access denied` on a specific resource only      | Microtenant scope mismatch — credential lacks access to the requested microtenant.     | Use a credential bound to that microtenant, or remove `microtenant_id`.        |

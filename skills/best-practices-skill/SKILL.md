@@ -25,6 +25,8 @@ Every best-practices response must include:
 
 Never recommend `terraform state rm` against any Zscaler resource (orphans the API object — see provider skills' troubleshooting).
 
+For **ZIA and ZTC**, never propose a design that applies two states against the same tenant concurrently, or that activates once per state. The tenant has a single write lock and a single activation queue regardless of how state is split — see [Concurrency Is a Tenant Property](references/state-management.md#concurrency-is-a-tenant-property-not-a-state-property).
+
 ## Workflow
 
 1. **Capture context** (fields below).
@@ -53,21 +55,23 @@ Never recommend `terraform state rm` against any Zscaler resource (orphans the A
 | Discipline gap                          | Symptoms                                                                                                                 | Primary references                                                                                            |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
 | **State organization / blast radius**   | One state file for all Zscaler resources, microtenant teams blocked on each other's plans, locks held for hours          | [State Management](references/state-management.md)                                                            |
+| **Concurrent runs against one tenant**  | Workspace per ZIA resource type all applying at once, `EDIT_LOCK_NOT_AVAILABLE`, activation ran but nothing went live, a half-finished rule set went live | [State: Concurrency Is a Tenant Property](references/state-management.md#concurrency-is-a-tenant-property-not-a-state-property) |
 | **CI/CD shape**                         | "How do I PR-test policy changes?", forgot activation step in CI, secrets baked into pipeline YAML, `plan` re-run in apply job | [CI/CD](references/ci-cd-zscaler.md)                                                                          |
 | **Activation forgotten in CI**          | Apply succeeds but ZIA/ZTC console shows no change, `<product>_activation_status` missing from CI flow                    | [CI/CD: Activation Step](references/ci-cd-zscaler.md#activation-as-a-pipeline-stage)                          |
 | **Secret exposure / compliance**        | `client_secret` in `.tfvars`, in state, in CI logs; long-lived credentials instead of OIDC                               | [Security & Compliance](references/security-and-compliance.md)                                                |
 | **Testing strategy**                    | "How do I validate before merge?", no sandbox tenant, mock vs real provider confusion, computed-value assertions failing | [Testing & Validation](references/testing-and-validation.md)                                                  |
-| **Module structure / boundaries**       | "One module or three?", mixing ZPA + ZIA in one module, kitchen-sink god module, lifecycle confusion                     | [Module Patterns](references/module-patterns.md)                                                              |
+| **Module structure / boundaries**       | "One module or three?", when ZPA + ZIA belong in one module, kitchen-sink god module, lifecycle confusion                | [Module Patterns](references/module-patterns.md)                                                              |
 | **Coding shape (loops, locals, dynamic)** | `count` over a list shifting addresses, hardcoded IDs, `dynamic` block where static would do, validation gaps           | [Coding Practices](references/coding-practices.md)                                                            |
 | **Naming, layout, drift**               | Inconsistent resource names, file-organization confusion, `"this"` everywhere, opaque variable names                     | [Naming Conventions](references/naming-conventions.md)                                                        |
 | **Variables and outputs**               | Weak typing (`any`), parallel lists, missing validation, exposing entire resources                                       | [Variables and Outputs](references/variables-and-outputs.md)                                                  |
 | **Versioning / lockfile / upgrades**    | Provider upgrade broke prod, no lockfile committed, exact pin blocks fixes, `init -upgrade` in feature PR                | [Versioning](references/versioning.md)                                                                        |
 | **Anti-patterns / "is this OK?"**       | Recurring footguns: state rm, `provider {}` in modules, manual activation, mixed env vars                                | [Anti-Patterns](references/anti-patterns.md)                                                                  |
+| **Import / brownfield adoption**        | "Tenant is already configured", hand-writing HCL for existing objects, unwinding a bad import, non-empty first plan       | [Import and Brownfield](references/import-and-brownfield.md)                                                  |
 | **Quick lookup / DO-DON'T**             | Cheat-sheet question, naming question, "is X allowed?"                                                                   | [Quick Reference](references/quick-reference.md)                                                              |
 | **Cross-product question**              | "What's the ZIA equivalent of …?", "Does ZCC have activation?", multiple Zscaler products in one prompt                  | [Cross-Product Equivalents](references/cross-product-equivalents.md)                                          |
 | **Defaults-to-S3 (host cloud mismatch)**| User said Azure / GCP / Terraform Cloud for state, draft answer still uses an `s3` backend                                | [State Management: Backend Choice — Per Host Cloud](references/state-management.md#backend-choice--per-host-cloud) |
 | **Defaults-to-ZPA (product mismatch)**  | User said ZIA / ZTC / ZCC, draft answer routes to ZPA patterns (e.g. emits `segment_group` for a ZIA question)            | [Cross-Product Equivalents: Resource Concept Map](references/cross-product-equivalents.md#resource-concept-map) |
-| **Defaults-to-OneAPI on legacy tenant** | User mentioned GOV / `zscalerten` / "we haven't moved to Zidentity yet", draft still emits the OneAPI provider block      | [Cross-Product Equivalents: Auth Env-Var Matrix](references/cross-product-equivalents.md#auth-env-var-matrix) + per-product `references/auth-and-providers.md` |
+| **Defaults-to-OneAPI on legacy tenant** | User said "we haven't moved to Zidentity yet" (or is on ZTC with a government tenant), draft still emits the OneAPI provider block. Note a FedRAMP cloud alone no longer implies legacy — ZIA and ZPA support it over OneAPI. | [Cross-Product Equivalents: Auth Env-Var Matrix](references/cross-product-equivalents.md#auth-env-var-matrix) + per-product `references/auth-and-providers.md` |
 | **Defaults-to-parent-tenant on microtenant** | User mentioned a microtenant for ZPA but draft omits `microtenant_id` on the resource and/or data sources             | `zpa-skill` → troubleshooting.md (microtenant 404)                                                            |
 
 ## Cross-Cutting Principles (Compressed)
@@ -135,7 +139,10 @@ See [Testing & Validation](references/testing-and-validation.md).
 | **Infrastructure module**  | Collection of resource modules for one tenant / one product       | "All ZPA app segments for prod tenant", "All ZIA URL filtering rules for prod tenant"           |
 | **Composition (root)**     | Per-environment top-level config that wires infrastructure modules | `environments/prod/zpa/`, `environments/prod/zia/`                                              |
 
-❌ Do **not** mix `zia_*` and `zpa_*` resources in the same module — different lifecycles, different activation rules, different tenants likely.
+The module boundary is **purpose**, not product.
+
+❌ Do **not** bundle *unrelated* `zia_*` and `zpa_*` resources in one module — different lifecycles, different activation rules, different tenants likely.
+✅ **Do** declare two providers in one module when a single feature spans both products. `zia_forwarding_control_zpa_gateway` (IP Source Anchoring) is defined by the `external_id` of a ZPA server group and application segment, which only the ZPA provider can supply — that module needs `zia` *and* `zpa` in `required_providers`.
 
 ✅ Modules are reusable; root configs are not. Reusable modules **never** declare `provider` blocks — the root composes them.
 
@@ -163,6 +170,7 @@ Process discipline:
 
 - [Versioning](references/versioning.md) — Terraform / provider pins, lockfile discipline, module SemVer, `moved {}`, OneAPI migration.
 - [Anti-Patterns](references/anti-patterns.md) — quick-index table of every footgun + detail on the non-obvious ones.
+- [Import and Brownfield](references/import-and-brownfield.md) — `zscaler-terraformer` for existing ZIA/ZPA tenants, per-resource imports, `removed {}` instead of `state rm`, write-only-value limits.
 
 Cross-cutting peer equivalence:
 
