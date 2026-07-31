@@ -30,6 +30,10 @@ This enables Terraform's debug logging **and** the Zscaler SDK's HTTP request/re
 | DLP dictionary lookup fails (`no dictionary found with name: ...`)                                 | [DLP Dictionary Names](#dlp-dictionary-names-with-spaces)     |
 | Cloud app control action rejected as conflicting                                                  | [Conflicting API Actions](#conflicting-api-actions)           |
 | Apply succeeds but policy doesn't change                                                          | [activation.md](activation.md)                                |
+| `EDIT_LOCK_NOT_AVAILABLE` / `Resource Access Blocked` / `Failed during enter Org barrier`          | [Concurrent Runs Against One Tenant](#concurrent-runs-against-one-tenant) |
+| Apply gets progressively slower with no errors, several pipelines running                          | [Concurrent Runs Against One Tenant](#concurrent-runs-against-one-tenant) |
+| Activation succeeded but nothing went live                                                        | [activation.md → Activation Queues](activation.md#activation-queues-behind-other-editors) |
+| A half-finished rule set took effect                                                              | [Concurrent Runs Against One Tenant](#concurrent-runs-against-one-tenant) |
 | Want to remove a resource without deleting in ZIA                                                 | [Never `state rm` a ZIA Resource](#never-state-rm-a-zia-resource) |
 
 ---
@@ -214,6 +218,35 @@ Workaround:
 1. Build the rule via the ZIA Admin Portal first.
 2. Capture the working action combination via `data "zia_cloud_app_control_rule" "x" { name = "..." }`.
 3. Mirror that exact combination in HCL.
+
+---
+
+## Concurrent Runs Against One Tenant
+
+Symptoms, in increasing order of severity:
+
+1. Applies get progressively slower with no visible errors, especially when several pipelines are active.
+2. `409` responses carrying `EDIT_LOCK_NOT_AVAILABLE`, `Resource Access Blocked`, or `Failed during enter Org barrier` (also seen as `412`).
+3. An apply fails part-way through, leaving the configuration partially applied.
+4. An incomplete rule set takes effect in production.
+
+Cause: ZIA serialises configuration changes with a **single tenant-wide write lock**. Every create, update, and delete must acquire it. Two or more Terraform runs against the same tenant contend for that one lock, regardless of whether they manage different resource types or live in different state files. The provider retries these conditions automatically, which is why the first symptom is slowness rather than an error.
+
+Symptom 4 comes from the activation side: activation publishes **all** pending tenant changes and queues while any other session is still editing, so one run's activation can publish another run's partial work. See [activation.md → Activation Queues](activation.md#activation-queues-behind-other-editors).
+
+This is **not** a rate limit. A `429` means a threshold was exceeded and carries a `Retry-After`; a `409` edit-lock error means another session holds the write lock.
+
+Fix:
+
+1. Serialise `apply` — one at a time per tenant. In CI, key the concurrency control on the **tenant**, not the repository, workspace, or state path.
+2. Leave `plan` parallel. Reads do not take the write lock.
+3. Activate **once**, after the final apply, using `ziaActivator`.
+4. Do **not** lower `-parallelism`. It does not reduce the number of competing runs, and the longer runtime increases the chance of crossing an API session boundary, which triggers an unplanned activation.
+5. Do **not** cancel an in-flight apply to let another proceed — that is itself a cause of partial state.
+
+Also check for a human in the Admin Portal: an administrator with unsaved changes holds the same lock and queues the same activations as an API session.
+
+See [best-practices-skill → Concurrency Is a Tenant Property](../../best-practices-skill/references/state-management.md#concurrency-is-a-tenant-property-not-a-state-property) for the state-layout and pipeline patterns.
 
 ---
 

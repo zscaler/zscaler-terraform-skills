@@ -6,12 +6,15 @@ How to configure the `zscaler/zia` provider correctly across auth modes, clouds,
 
 | Goal                                                | Use                              | Tradeoff                                                                       |
 | --------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------ |
-| Tenant migrated to Zidentity (most modern tenants)  | OneAPI client credentials        | Requires Zidentity onboarding. Not available on `zscalergov` / `zscalerten`.   |
+| Tenant migrated to Zidentity (most modern tenants)  | OneAPI client credentials        | Requires Zidentity onboarding.                                                 |
 | OneAPI tenant + JWT-style cert auth                 | OneAPI private key (JWK)         | More setup; supports key rotation without distributing a shared secret.        |
 | Tenant **not** migrated to Zidentity                | Legacy v3 (username + API key)   | Will need to migrate when tenant moves to Zidentity.                           |
-| `zscalergov` / `zscalerten` cloud                   | Legacy v3                        | OneAPI is not supported on these clouds (as of provider v4.x).                 |
+| FedRAMP cloud, provider `>= v4.7.25`                | OneAPI + `zscaler_cloud = "gov"` or `"govus"` | Requires Zidentity onboarding in the government environment.      |
+| FedRAMP cloud, provider `< v4.7.25`                 | Legacy v3 + `zia_cloud = "zscalergov"` / `"zscalerten"` | Upgrade the provider to move onto OneAPI.               |
 
 If the user does not say which they have, **ask**. Do not silently default to OneAPI — many production tenants are still on legacy.
+
+⚠️ **The "GOV is legacy-only" rule is obsolete.** OneAPI supports the FedRAMP clouds from provider `v4.7.25` onward, served by a dedicated Zidentity identity provider and API gateway. Do not route a government tenant to legacy auth on the basis of its cloud alone — check the pinned provider version first. Note that the two auth paths name these environments differently: OneAPI uses `gov` / `govus`, while `zscalergov` / `zscalerten` are legacy-only names.
 
 ## Cloud Selector — Two Different Attributes
 
@@ -21,10 +24,12 @@ If the user does not say which they have, **ask**. Do not silently default to On
 
 | Value     | When                                                                                            |
 | --------- | ----------------------------------------------------------------------------------------------- |
-| *(unset)* | **Default — production Zidentity.** Use this for all production tenants.                        |
+| *(unset)* | **Default — production commercial Zidentity.** Use this for all production commercial tenants.  |
 | `beta`    | Zidentity beta environment, for pre-release validation. Never set for production state.          |
+| `gov`     | FedRAMP cloud (`zidentitygov.net`). Requires provider `>= v4.7.25`.                             |
+| `govus`   | FedRAMP cloud (`zidentitygov.us`). Requires provider `>= v4.7.25`.                              |
 
-❌ Do not pass legacy cloud names (`zscaler`, `zscloud`, `zscalerthree`, …) to `zscaler_cloud`. They are not Zidentity environments. ✅ Omit `zscaler_cloud` entirely for production OneAPI.
+❌ Do not pass legacy cloud names (`zscaler`, `zscloud`, `zscalerthree`, `zscalergov`, `zscalerten`, …) to `zscaler_cloud`. They are not Zidentity environments, and `zscalergov` here produces `Cloud zscalergov not supported for OneAPI` — which is a wrong-value error, **not** evidence that GOV lacks OneAPI support. ✅ Omit `zscaler_cloud` entirely for production commercial OneAPI; set `gov` / `govus` for FedRAMP.
 
 ### Legacy: `zia_cloud` — REQUIRED on legacy auth, names the actual cloud
 
@@ -36,8 +41,8 @@ If the user does not say which they have, **ask**. Do not silently default to On
 | `zscalerone`    | Commercial cloud.                                                                                |
 | `zscalertwo`    | Commercial cloud.                                                                                |
 | `zscalerthree`  | Commercial cloud.                                                                                |
-| `zscalergov`    | US Federal cloud (legacy-only).                                                                  |
-| `zscalerten`    | US Federal high-security cloud (legacy-only).                                                    |
+| `zscalergov`    | US Federal cloud. Legacy name only — on OneAPI use `gov` / `govus` instead.                       |
+| `zscalerten`    | US Federal high-security cloud. Legacy name only — on OneAPI use `gov` / `govus` instead.         |
 | `zspreview`     | Preview cloud.                                                                                   |
 
 If you are not sure which cloud the tenant is on, log into the ZIA console and check the URL — the subdomain (e.g. `admin.zscalerthree.net`) names the cloud.
@@ -88,7 +93,7 @@ provider "zia" {
 
 ❌ Do not commit the `.pem` to git. ✅ Mount it from your secret store onto the runner at job start, reference by `path.module` or an absolute env var path.
 
-## Provider Block — Legacy v3 (Pre-Zidentity Tenants, GOV, ZSCALERTEN)
+## Provider Block — Legacy v3 (Pre-Zidentity Tenants, or FedRAMP Below v4.7.25)
 
 ```hcl
 provider "zia" {
@@ -184,7 +189,7 @@ jobs:
         with: { name: tfplan, path: tfplan }
 ```
 
-The apply job pulls the plan artifact and runs `terraform apply tfplan` — **never** re-plans inside apply. If you manage `zia_activation_status` in HCL (recommended), activation happens as part of apply.
+The apply job pulls the plan artifact and runs `terraform apply tfplan` — **never** re-plans inside apply. Follow it with a dedicated activation step running `ziaActivator` (recommended), or, if the configuration manages `zia_activation_status` in HCL, activation happens as part of the apply itself.
 
 ## Common Auth Errors
 
@@ -192,5 +197,5 @@ The apply job pulls the plan artifact and runs `terraform apply tfplan` — **ne
 | --------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `401 unauthorized` immediately on init/plan         | Wrong `client_id` / `client_secret`, or wrong `vanity_domain` for the tenant.          | Verify in Zidentity console; confirm `vanity_domain` is the prefix, no FQDN.   |
 | `vanity_domain not found`                           | Typo, or tenant not migrated to Zidentity.                                              | Confirm in Zidentity; if not migrated, switch to legacy auth.                  |
-| `Cloud zscalergov not supported for OneAPI`         | Tenant on `zscalergov` / `zscalerten` but provider configured for OneAPI.              | Switch to legacy auth (`use_legacy_client = true`).                            |
+| `Cloud zscalergov not supported for OneAPI`         | A legacy cloud name was passed to `zscaler_cloud`. OneAPI names the FedRAMP clouds `gov` / `govus`. | Set `zscaler_cloud = "gov"` (or `"govus"`) on provider `>= v4.7.25`. Only below that version is legacy auth the answer. |
 | `403 access denied` on a specific resource          | The OneAPI client lacks the role/scope needed for that resource (DLP / sandbox / etc.). | Re-issue the OneAPI client with the right role; check Zidentity role mapping. |

@@ -9,7 +9,7 @@ How to organize Terraform state when the providers are `zscaler/zpa`, `zscaler/z
 | Single small tenant, one team, < 50 resources total                                 | One state per environment (`prod/main.tfstate`)                                            | Simple. Any change blocks the whole team's plans.                                                     |
 | Per-product ownership (network team owns ZPA, security team owns ZIA)               | One state per product, per environment (`prod/zpa/`, `prod/zia/`)                          | Decouples teams. Need cross-state outputs for shared IDs (e.g. SCIM groups).                          |
 | Multi-microtenant org with autonomous teams per microtenant                         | One state per microtenant cohort (`prod/zpa/microtenant-a/`, `prod/zpa/microtenant-b/`)    | Highest parallelism. Need a registry mapping microtenants → state paths.                              |
-| GOV + commercial in the same org                                                    | Separate state per cloud (`gov/zia/`, `commercial/zia/`)                                   | Mandatory — provider auth differs (`zscalergov` is legacy-only, GOV ≠ Zidentity OneAPI).              |
+| GOV + commercial in the same org                                                    | Separate state per cloud (`gov/zia/`, `commercial/zia/`)                                   | Mandatory — the two are separate FedRAMP-isolated tenants with their own credentials and cloud value (`gov` / `govus`), even though both can use OneAPI. |
 | Read-heavy "look up the IdP and SCIM groups" config                                  | Data-source-only state — no `resource` blocks, no activation                                | Skip activation entirely. Useful as an upstream reference state for other modules.                    |
 | Cross-product composition (ZIA forwards to ZPA gateway)                              | Use `terraform_remote_state` to read outputs across states; do **not** merge states         | Adds a backend dependency. Worth it for the blast-radius isolation.                                   |
 
@@ -18,9 +18,39 @@ How to organize Terraform state when the providers are `zscaler/zpa`, `zscaler/z
 - ❌ Never put all four products (ZPA + ZIA + ZTC + ZCC) in one state file. Different teams own them and lock contention will break workflows.
 - ❌ Never put production and non-production in the same state.
 - ❌ Never use `local` backend for any non-throwaway Zscaler config — apply lock contention only protects you with a remote backend.
+- ❌ **ZIA / ZTC only:** never apply two states against the same tenant concurrently — see [Concurrency Is a Tenant Property](#concurrency-is-a-tenant-property-not-a-state-property).
 - ✅ Split state on **policy ownership boundary**: who reviews and approves changes to this set of resources? That's a state.
 - ✅ Use `terraform_remote_state` (or backend-specific equivalents) to read upstream IDs (SCIM group IDs from the identity state, app connector group IDs from the platform state).
 - ✅ Per-microtenant state files when the microtenant has its own approval workflow; per-cohort if many microtenants share the same approver.
+
+## Concurrency Is a Tenant Property, Not a State Property
+
+**Applies to ZIA and ZTC. Does not apply to ZPA or ZCC.**
+
+Splitting state does not split the tenant. Terraform's state lock only protects one state file from itself; it says nothing about two different states writing to the same tenant at the same time. For ZIA and ZTC two platform behaviours make that unsafe:
+
+| Behaviour | Effect on concurrent runs |
+| --- | --- |
+| **Tenant-wide write lock** ("org barrier") — every create/update/delete must acquire it | Losers are rejected with `EDIT_LOCK_NOT_AVAILABLE`, `Resource Access Blocked`, `Failed during enter Org barrier`. Retried automatically, so the symptom is a run that slows down, then dies mid-apply when retries are exhausted — leaving partial state. |
+| **Activation is tenant-wide and queues** — publishes *all* pending tenant changes, and waits while any other session is still editing; a queued activation **cannot be cancelled** | A per-state activation does not publish that state's changes independently. Timing is set by whichever run finishes last, and when the queue clears, work from an in-flight or failed run is published too. |
+
+See [Saving and Activating Changes](https://help.zscaler.com/legacy-zia/saving-and-activating-changes-admin-portal) for the platform description of activation queuing.
+
+**The pattern to recommend:**
+
+- ✅ Keep the state split — none of this argues for one monolithic ZIA state.
+- ✅ Run `plan` concurrently. Reads don't take the write lock.
+- ✅ Serialise `apply` with a CI concurrency key on the **tenant**, not the repo, state path, or workspace.
+- ✅ Activate **once**, after the final apply, out of band.
+- ❌ Don't activate per state.
+- ❌ Don't lower `-parallelism` to relieve contention — it doesn't reduce the number of competing runs, and the longer runtime raises the chance of crossing an API session boundary and triggering an unplanned activation.
+- ❌ Don't cancel an in-flight apply to let another start — that is itself a cause of partial state.
+
+This is **separate from** the rule-ordering constraint that all rules of one type need a single owner. That one is about layout; this one is about execution. Even states managing entirely disjoint resource types share one write lock and one activation queue.
+
+If genuinely parallel execution is required, a separate tenant is the only boundary that provides it — each tenant has its own write lock and activation queue.
+
+~> **Do not generalise the ZPA microtenant pattern to ZIA.** Parallel per-microtenant applies are safe on ZPA because ZPA has no tenant-wide write lock and no activation step. See [CI/CD: Concurrency](ci-cd-zscaler.md#concurrency--microtenants).
 
 ## Recommended Starter Layout
 

@@ -1,10 +1,20 @@
 # ZTC — Recent Provider Changes
 
-*Auto-generated from `terraform-provider-ztc/CHANGELOG.md` — last updated 2026-04-23.*
+*Auto-generated from `terraform-provider-ztc/CHANGELOG.md` — last updated 2026-07-30.*
 
-Curated subset of recent provider releases that affect HCL users. Internal SDK bumps,
-library upgrades, and pure refactors are filtered out. Always cross-reference the full
-upstream changelog at <https://github.com/zscaler/terraform-provider-ztc/blob/master/CHANGELOG.md>.
+Curated subset of recent provider releases that affect HCL users. Internal SDK bumps, library upgrades, and pure refactors are filtered out. Always cross-reference the full upstream changelog at <https://github.com/zscaler/terraform-provider-ztc/blob/master/CHANGELOG.md>.
+
+## v0.2.0 — June 29, 2026
+
+### Enhancements
+
+- [PR #45](https://github.com/zscaler/terraform-provider-ztc/pull/45) - Fixed `ztc_edge_connector_group` panic with attribute type `ec_instances.0.dns_ip`
+
+## v0.1.9 — May 13, 2026
+
+### Enhancements
+
+- [PR #38](https://github.com/zscaler/terraform-provider-ztc/pull/38) - Fixed resource and datasource `ztc_account_groups` to allow for proper simplified configuration.
 
 ## v0.1.8 — February 27, 2026
 

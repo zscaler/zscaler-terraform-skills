@@ -9,7 +9,7 @@ Sources can be local checkouts (set ZSCALER_PROVIDERS_DIR) or fetched over HTTPS
 
 Usage:
     python scripts/changelog/mine.py
-    python scripts/changelog/mine.py --skill zia --top 8
+    python scripts/changelog/mine.py --skill zia-skill --top 8
     ZSCALER_PROVIDERS_DIR=~/code/zscaler python scripts/changelog/mine.py
 """
 from __future__ import annotations
@@ -26,16 +26,18 @@ from typing import Iterable
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # (skill_name, provider_repo_basename, raw URL of CHANGELOG.md)
+# skill_name must match the on-disk directory under skills/ exactly — the agentskills.io
+# spec requires directory name == SKILL.md `name:`, so these carry the `-skill` suffix.
 PROVIDERS: list[tuple[str, str, str]] = [
-    ("zpa", "terraform-provider-zpa",
+    ("zpa-skill", "terraform-provider-zpa",
      "https://raw.githubusercontent.com/zscaler/terraform-provider-zpa/master/CHANGELOG.md"),
-    ("zia", "terraform-provider-zia",
+    ("zia-skill", "terraform-provider-zia",
      "https://raw.githubusercontent.com/zscaler/terraform-provider-zia/master/CHANGELOG.md"),
-    ("ztc", "terraform-provider-ztc",
+    ("ztc-skill", "terraform-provider-ztc",
      "https://raw.githubusercontent.com/zscaler/terraform-provider-ztc/master/CHANGELOG.md"),
     # ZCC: not yet published; the scheduled workflow will start picking it up once
     # https://github.com/zscaler/terraform-provider-zcc is public.
-    ("zcc", "terraform-provider-zcc",
+    ("zcc-skill", "terraform-provider-zcc",
      "https://raw.githubusercontent.com/zscaler/terraform-provider-zcc/master/CHANGELOG.md"),
 ]
 
@@ -98,6 +100,20 @@ def parse_versions(text: str) -> list[dict]:
     return versions
 
 
+def sanitize_entry(entry: str) -> str:
+    """Normalize upstream changelog prose so the emitted page passes markdownlint.
+
+    Upstream entries occasionally contain a doubled backtick where a single one was
+    meant. A ``-run opens a code span that needs a matching ``-run to close, so one
+    stray backtick re-pairs every span on the line and markdownlint reports the
+    resulting `, ` fragments as MD038 violations.
+    """
+    entry = re.sub(r"`{2,}", "`", entry)
+    if entry.count("`") % 2:
+        entry = entry.replace("`", "")
+    return entry
+
+
 def filter_user_facing(entries: Iterable[str]) -> list[str]:
     out: list[str] = []
     for e in entries:
@@ -109,18 +125,13 @@ def filter_user_facing(entries: Iterable[str]) -> list[str]:
             continue
         # Keep entries that mention an HCL-visible thing OR are clearly enhancement/breaking
         if USER_FACING_HINTS.search(e):
-            out.append(e)
+            out.append(sanitize_entry(e))
     return out
 
 
 def render_page(skill: str, provider_repo: str, versions: list[dict], top_n: int) -> str:
     today = dt.date.today().isoformat()
-    title = {
-        "zpa": "ZPA — Recent Provider Changes",
-        "zia": "ZIA — Recent Provider Changes",
-        "ztc": "ZTC — Recent Provider Changes",
-        "zcc": "ZCC — Recent Provider Changes",
-    }.get(skill, f"{skill.upper()} — Recent Provider Changes")
+    title = f"{skill.removesuffix('-skill').upper()} — Recent Provider Changes"
 
     lines: list[str] = [
         f"# {title}",
@@ -158,7 +169,7 @@ def render_page(skill: str, provider_repo: str, versions: list[dict], top_n: int
             lines.append("")
 
     if shown == 0:
-        lines.append("_No user-facing changes detected in the last few releases._")
+        lines.append("*No user-facing changes detected in the last few releases.*")
         lines.append("")
 
     return "\n".join(lines).rstrip() + "\n"
@@ -166,7 +177,7 @@ def render_page(skill: str, provider_repo: str, versions: list[dict], top_n: int
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--skill", help="Only mine for this skill (zpa | zia | …)")
+    p.add_argument("--skill", help="Only mine for this skill (zpa-skill | zia-skill | …)")
     p.add_argument("--top", type=int, default=10, help="How many recent versions to include")
     p.add_argument("--dry-run", action="store_true")
     return p.parse_args()
@@ -179,6 +190,13 @@ def main() -> int:
         if args.skill and args.skill != skill:
             continue
         print(f"[{skill}] mining {provider_repo}")
+        # A renamed skill directory must not be silently recreated as an orphan that
+        # no SKILL.md loads — fail loudly so PROVIDERS gets updated instead.
+        if not (REPO_ROOT / "skills" / skill / "SKILL.md").exists():
+            print(f"  FAILED: skills/{skill}/SKILL.md not found — update PROVIDERS",
+                  file=sys.stderr)
+            failures += 1
+            continue
         try:
             text = fetch_changelog(provider_repo, url)
         except Exception as e:
@@ -195,7 +213,7 @@ def main() -> int:
         if args.dry_run:
             print(f"  would write {out.relative_to(REPO_ROOT)} ({len(page)} bytes)")
             continue
-        out.parent.mkdir(parents=True, exist_ok=True)
+        out.parent.mkdir(exist_ok=True)
         out.write_text(page)
         print(f"  wrote {out.relative_to(REPO_ROOT)}")
     return 1 if failures else 0

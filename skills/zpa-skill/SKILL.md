@@ -39,8 +39,8 @@ Never recommend `terraform apply` against a production ZPA tenant without a revi
 | Field             | Why it matters                                                                                                | Default if missing                |
 | ----------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------- |
 | Provider version  | Resource catalog and auth options differ between v3 (legacy) and v4+ (OneAPI). Always pin `~> 4.0` minimum.    | Assume `~> 4.0` and state it.     |
-| **Auth mode**     | **OneAPI and legacy v3 are both first-class.** Tenant must be migrated to Zidentity for OneAPI; otherwise legacy is the only option. `GOV` / `GOVUS` clouds are legacy-only. | **Ask. Do not default.** State both options if unclear. |
-| Cloud target      | OneAPI: `zscaler_cloud` is **optional** and only set for non-prod (e.g. `beta`). Legacy: `zpa_cloud` is required only when **not** `PRODUCTION` (`BETA`, `ZPATWO`, `GOV`, `GOVUS`, `PREVIEW`). | **Omit `zscaler_cloud` for production OneAPI. Omit `zpa_cloud` for legacy PRODUCTION.** |
+| **Auth mode**     | **OneAPI and legacy v3 are both first-class.** Tenant must be migrated to Zidentity for OneAPI; otherwise legacy is the only option. FedRAMP clouds work on **either** path — OneAPI from `v4.4.6`. | **Ask. Do not default.** State both options if unclear. |
+| Cloud target      | OneAPI: `zscaler_cloud` is **optional** for commercial production; set `gov` / `govus` for FedRAMP, `beta` for non-prod. Legacy: `zpa_cloud` is required only when **not** `PRODUCTION` (`BETA`, `ZPATWO`, `GOV`, `GOVUS`, `PREVIEW`). | **Omit `zscaler_cloud` for commercial production OneAPI. Omit `zpa_cloud` for legacy PRODUCTION.** |
 | Customer ID       | Required for both auth modes — tenant-scoped (`ZPA_CUSTOMER_ID`).                                              | Ask if absent.                    |
 | Microtenant       | Many resources are microtenant-scoped. Mixing scopes silently breaks Read.                                     | Assume parent tenant; flag risk.  |
 | Terraform runtime | Affects `optional()`, `moved`, `import`, `write_only` availability.                                            | Assume `terraform ~> 1.9`.        |
@@ -49,7 +49,7 @@ Never recommend `terraform apply` against a production ZPA tenant without a revi
 
 | Failure category            | Symptoms                                                                                                            | Primary references                                                                                                                          |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Auth misconfiguration**   | `401 unauthorized`, `vanity_domain not found`, GOV cloud rejecting OneAPI                                            | [Auth & Providers](references/auth-and-providers.md)                                                                                        |
+| **Auth misconfiguration**   | `401 unauthorized`, `vanity_domain not found`, `Cloud GOV not supported for OneAPI`                                   | [Auth & Providers](references/auth-and-providers.md)                                                                                        |
 | **Resource catalog mismatch** | "Does ZPA have a resource for X?", invented attribute names, wrong block structure                                  | [Resource Catalog](references/resource-catalog.md)                                                                                          |
 | **Policy operand misuse**   | `400 INVALID_INPUT` on policy rule, `Invalid operand type`, `LHS value is required`                                  | [Policy Rules: Operand Reference](references/policy-rules.md#operand-reference)                                                             |
 | **Policy ordering / type**  | Wrong `policy_set_id`, rule applied in wrong policy, action enum rejected                                            | [Policy Rules: Policy Type Map](references/policy-rules.md#policy-type-map)                                                                 |
@@ -89,7 +89,7 @@ provider "zpa" {
 }
 ```
 
-### Legacy v3 (pre-Zidentity tenants, GOV, GOVUS)
+### Legacy v3 (pre-Zidentity tenants, or FedRAMP below `v4.4.6`)
 
 ```hcl
 provider "zpa" {

@@ -200,7 +200,7 @@ Steps:
 ❌ Switching auth mode mid-CI run.
 ✅ Auth mode change is its own PR; CI confirms `plan` is empty.
 
-GOV (`zscalergov`) and `zscalerten` clouds are still legacy-only — no OneAPI migration available.
+The FedRAMP clouds are no longer legacy-only. ZIA supports them over OneAPI from `v4.7.25` and ZPA from `v4.4.6`, using `zscaler_cloud = "gov"` / `"govus"` — note these are OneAPI-specific values, distinct from the legacy `zscalergov` / `zscalerten` names. ZTC has no released FedRAMP OneAPI support yet, so a ZTC government tenant remains on legacy for now.
 
 ### Terraform runtime upgrade
 

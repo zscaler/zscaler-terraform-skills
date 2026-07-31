@@ -309,11 +309,12 @@ The skill also covers when `terraform test` is enough vs when Terratest (Go) mak
 ### Patterns and anti-patterns
 
 - `coding-practices.md` — `count` vs `for_each` vs `dynamic`, `locals`, dynamic blocks (with the ZPA policy-operand example), variable validation, dependency management
-- `module-patterns.md` — module shapes, required files, boundaries (no mixed providers per module), composition, examples directory structure
+- `module-patterns.md` — module shapes, required files, boundaries (purpose not product, including legitimate cross-product modules such as IP Source Anchoring), composition, examples directory structure
 - `naming-conventions.md` — Terraform resource addresses vs Zscaler portal names, naming patterns per resource type
 - `variables-and-outputs.md` — typed variables with `optional()`, validation blocks, sensitive handling, output design for `for_each` collections
 - `versioning.md` — provider/Terraform constraints, lockfile discipline, module SemVer, `moved {}` blocks for safe renames, OneAPI migration strategy
 - `anti-patterns.md` — quick-index of 30+ Zscaler-Terraform anti-patterns, cross-linked to the file that explains the right pattern
+- `import-and-brownfield.md` — adopting an existing ZIA/ZPA tenant with `zscaler-terraformer`, single-object `terraform import`, `removed {}` instead of `state rm`
 
 ## Why these skills
 

@@ -125,12 +125,13 @@ When you change content, **manually re-run** the affected scenarios in your IDE 
 - **Expected skill**: `zia-skill`
 - **Must include**:
   - Diagnosis: ZIA changes are **draft** until activated
-  - `zia_activation_status` resource with `status = "ACTIVE"` and `depends_on` on every policy resource
-  - Recommendation to manage activation in HCL (atomic) vs manual
+  - Note that activation is **tenant-wide** — one call publishes all pending changes
+  - Recommendation of the out-of-band `ziaActivator` step after apply, with `zia_activation_status` (`status = "ACTIVE"` plus `depends_on` on every policy resource) as the in-HCL alternative for flat configurations
   - Reference to `references/activation.md`
 - **Must avoid**:
   - `zia_activation` (wrong resource name)
   - Suggesting a manual GUI step as the only option
+  - Recommending `ZIA_ACTIVATION=true` (activates per resource against a 10/min, 40/hr endpoint)
   - Multiple `zia_activation_status` resources in the same state
 
 ### S-ZIA-03 — Predefined-rule reorder fails with "Request body is invalid"
@@ -163,7 +164,7 @@ When you change content, **manually re-run** the affected scenarios in your IDE 
 - **Must include**:
   - Empty `provider "zia" {}` block, env vars listed: `ZSCALER_CLIENT_ID`, `ZSCALER_CLIENT_SECRET`, `ZSCALER_VANITY_DOMAIN`, `ZSCALER_CLOUD`
   - Note that ZIA does **not** require `ZPA_CUSTOMER_ID` (unlike ZPA)
-  - Note that GOV / `zscalerten` are not OneAPI — switch to legacy
+  - Note that `ZSCALER_CLOUD` is omitted for commercial production, and set to `gov` / `govus` for FedRAMP tenants on `v4.7.25`+
 - **Must avoid**:
   - Including `ZPA_CUSTOMER_ID` (not a ZIA env var)
   - Putting `client_secret` in `variables.tf` defaults
@@ -223,7 +224,7 @@ When you change content, **manually re-run** the affected scenarios in your IDE 
 - **Must include**:
   - Empty `provider "ztc" {}` block, env vars listed: `ZSCALER_CLIENT_ID`, `ZSCALER_CLIENT_SECRET`, `ZSCALER_VANITY_DOMAIN`, `ZSCALER_CLOUD`
   - Note that ZTC does **not** require `ZPA_CUSTOMER_ID`
-  - Note that GOV / `zscalerten` are not OneAPI — switch to legacy with `ZTC_USERNAME`, `ZTC_PASSWORD`, `ZTC_API_KEY`, `ZTC_CLOUD`, `ZSCALER_USE_LEGACY_CLIENT=true`
+  - Note that ZTC has no released FedRAMP OneAPI support, so a government tenant uses legacy with `ZTC_USERNAME`, `ZTC_PASSWORD`, `ZTC_API_KEY`, `ZTC_CLOUD`, `ZSCALER_USE_LEGACY_CLIENT=true` — unlike ZIA / ZPA, which do support it
 - **Must avoid**:
   - Including `ZPA_CUSTOMER_ID`
   - Putting `client_secret` in `variables.tf` defaults
@@ -314,7 +315,7 @@ These scenarios exercise the `best-practices-skill` and specifically catch defau
 - **Must include**:
   - `provider "zia" { use_legacy_client = true }`
   - Env vars: `ZIA_USERNAME`, `ZIA_PASSWORD`, `ZIA_API_KEY`, `ZIA_CLOUD=zscalerten`, `ZSCALER_USE_LEGACY_CLIENT=true`
-  - Explicit note that `zscalerten` is a **legacy** cloud and is **not available on OneAPI**
+  - Explicit note that `zscalerten` is a **legacy** cloud name belonging in `zia_cloud`, not a OneAPI value (OneAPI names the FedRAMP clouds `gov` / `govus`)
   - Reference to `best-practices-skill/references/cross-product-equivalents.md#auth-env-var-matrix` or `zia-skill/references/auth-and-providers.md`
 - **Must avoid**:
   - Emitting the OneAPI provider block (`ZSCALER_CLIENT_ID`, `ZSCALER_VANITY_DOMAIN`) anywhere as the primary recommendation

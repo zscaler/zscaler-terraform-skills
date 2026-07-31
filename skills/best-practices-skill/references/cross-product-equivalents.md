@@ -46,12 +46,12 @@ Both OneAPI (Zidentity) and legacy v3 (per-product) are **first-class** for all 
 
 | Provider | Required                                                                                       | Optional                                       | Notes                                                                  |
 | -------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------- |
-| ZPA      | `ZSCALER_CLIENT_ID`, `ZSCALER_CLIENT_SECRET` (or `ZSCALER_PRIVATE_KEY`), `ZSCALER_VANITY_DOMAIN`, `ZPA_CUSTOMER_ID` | `ZSCALER_CLOUD` (only for non-prod, e.g. `beta`), `ZPA_MICROTENANT_ID` | `ZPA_CUSTOMER_ID` is required on **both** auth modes.                  |
-| ZIA      | `ZSCALER_CLIENT_ID`, `ZSCALER_CLIENT_SECRET` (or `ZSCALER_PRIVATE_KEY`), `ZSCALER_VANITY_DOMAIN` | `ZSCALER_CLOUD` (only for non-prod)            | Does **not** need `ZPA_CUSTOMER_ID`.                                   |
-| ZTC      | `ZSCALER_CLIENT_ID`, `ZSCALER_CLIENT_SECRET` (or `ZSCALER_PRIVATE_KEY`), `ZSCALER_VANITY_DOMAIN` | `ZSCALER_CLOUD` (only for non-prod)            | Does **not** need `ZPA_CUSTOMER_ID`.                                   |
+| ZPA      | `ZSCALER_CLIENT_ID`, `ZSCALER_CLIENT_SECRET` (or `ZSCALER_PRIVATE_KEY`), `ZSCALER_VANITY_DOMAIN`, `ZPA_CUSTOMER_ID` | `ZSCALER_CLOUD` (`beta` for non-prod; `gov` / `govus` for FedRAMP on `v4.4.6`+), `ZPA_MICROTENANT_ID` | `ZPA_CUSTOMER_ID` is required on **both** auth modes.                  |
+| ZIA      | `ZSCALER_CLIENT_ID`, `ZSCALER_CLIENT_SECRET` (or `ZSCALER_PRIVATE_KEY`), `ZSCALER_VANITY_DOMAIN` | `ZSCALER_CLOUD` (`beta` for non-prod; `gov` / `govus` for FedRAMP on `v4.7.25`+) | Does **not** need `ZPA_CUSTOMER_ID`.                 |
+| ZTC      | `ZSCALER_CLIENT_ID`, `ZSCALER_CLIENT_SECRET` (or `ZSCALER_PRIVATE_KEY`), `ZSCALER_VANITY_DOMAIN` | `ZSCALER_CLOUD` (only for non-prod)            | Does **not** need `ZPA_CUSTOMER_ID`. **No released FedRAMP OneAPI support** — use legacy. |
 | ZCC      | `ZSCALER_CLIENT_ID`, `ZSCALER_CLIENT_SECRET` (or `ZSCALER_PRIVATE_KEY`), `ZSCALER_VANITY_DOMAIN` | `ZSCALER_CLOUD` (only for non-prod)            | Does **not** need `ZPA_CUSTOMER_ID`.                                   |
 
-### Legacy v3 (pre-Zidentity / GOV / `zscalerten`)
+### Legacy v3 (pre-Zidentity tenants, and ZTC FedRAMP)
 
 | Provider | Required                                                                                       | Notes                                                                  |
 | -------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
@@ -62,7 +62,9 @@ Both OneAPI (Zidentity) and legacy v3 (per-product) are **first-class** for all 
 
 ❌ `zscaler_cloud = "PRODUCTION"` on OneAPI — `PRODUCTION` is a **legacy** value. On OneAPI, omit it.
 ❌ `zscaler_cloud = "zscaler"` on OneAPI — `zscaler` is a **legacy ZIA cloud name**.
-✅ On OneAPI for production tenants: omit the cloud attribute entirely.
+❌ `zscaler_cloud = "zscalergov"` / `"GOV"` on OneAPI — also legacy names. OneAPI uses lowercase `gov` / `govus`.
+✅ On OneAPI for commercial production tenants: omit the cloud attribute entirely.
+✅ On OneAPI for FedRAMP tenants: set `gov` or `govus` (ZIA `v4.7.25`+, ZPA `v4.4.6`+).
 
 ---
 
@@ -74,7 +76,7 @@ Both OneAPI (Zidentity) and legacy v3 (per-product) are **first-class** for all 
 | ZIA: `zia_cloud` / `ZIA_CLOUD`     | n/a (use `ZSCALER_CLOUD` if needed)                          | **Always required**. Values: `zscaler`, `zscloud`, `zscalerbeta`, `zscalerone`, `zscalertwo`, `zscalerthree`, `zscalergov`, `zscalerten`, `zspreview`. |
 | ZTC: `ztc_cloud` / `ZTC_CLOUD`     | n/a (use `ZSCALER_CLOUD` if needed)                          | **Always required**. Same cloud-name set as ZIA.               |
 | ZCC: `zcc_cloud` / `ZCC_CLOUD`     | n/a (use `ZSCALER_CLOUD` if needed)                          | **Always required**.                                           |
-| All: `zscaler_cloud` / `ZSCALER_CLOUD` | Optional; only set for non-prod Zidentity (e.g. `beta`) | n/a                                                            |
+| All: `zscaler_cloud` / `ZSCALER_CLOUD` | Optional for commercial production. Set `beta` for non-prod, or `gov` / `govus` for FedRAMP (ZIA `v4.7.25`+, ZPA `v4.4.6`+; not yet released for ZTC). | n/a |
 
 ---
 

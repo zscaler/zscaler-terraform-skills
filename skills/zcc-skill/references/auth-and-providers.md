@@ -138,7 +138,7 @@ In CI, gate the env vars by which auth mode the workspace uses — never set bot
 | Argument            | Default | When to set                                                                                        |
 | ------------------- | ------- | -------------------------------------------------------------------------------------------------- |
 | `http_proxy`        | unset   | Local caching proxy / corporate egress (`ZSCALER_HTTP_PROXY` env).                                 |
-| `parallelism`       | reserved| Reserved for bulk operations; leave at default.                                                    |
+| `parallelism`       | ignored | Deprecated and has no effect. Do not set it; remove it from existing provider blocks.              |
 | `max_retries`       | SDK default | Lower for fast-fail environments; raise for flaky network paths.                              |
 | `request_timeout`   | per-request | Set in seconds when running behind aggressive idle-timeout middleware.                         |
 | `min_wait_seconds`  | SDK default | Lower bound for retry backoff.                                                                |

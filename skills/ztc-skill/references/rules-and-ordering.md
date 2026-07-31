@@ -83,12 +83,44 @@ ZTC changes are **draft** at the API level until activated.
 
 ### Decision Table — Pick the Activation Pattern
 
+Activation is tenant-wide: one call publishes every pending change, so no configuration needs more than one activation call per run.
+
 | Goal                                              | Use                                            | Tradeoff                                                                  |
 | ------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
-| Atomic per-apply activation in CI/CD              | `ztc_activation_status` resource in HCL        | If activation fails, draft changes need a manual or follow-up retry.      |
-| Decoupled / scheduled activation                  | `ztcActivator` CLI out-of-band                 | Acceptable for nightly batch; harder to reason about per-PR effects.      |
+| Any pipeline, and any config built from modules   | `ztcActivator` CLI out-of-band (recommended)   | Activation lives in the pipeline, not the graph, so it is not visible in `terraform plan`. |
+| Single flat config that owns all its resources    | `ztc_activation_status` resource in HCL        | `depends_on` must list **every** resource; anything omitted may be applied after activation. If activation fails, draft changes need a follow-up retry. |
 
-Recommendation for production: **manage `ztc_activation_status` in HCL**.
+Recommendation for production: **run `ztcActivator` as a dedicated pipeline stage after `terraform apply`.** Use `ztc_activation_status` only where a single flat configuration owns every resource it must activate.
+
+### Session Timeout — No Knob, Keep Runs Short
+
+The platform activates pending changes **when a session ends**, including when an API session reaches its timeout ([Zscaler API documentation](https://help.zscaler.com/legacy-apis/configuring-postman-rest-api-client-3)). An apply that outlives its session therefore has pending changes activated part-way through, before the rest of the configuration is written; the provider re-authenticates and continues, so nothing errors, but activation happened at a moment nobody chose.
+
+**ZTC exposes no way to adjust the API session lifetime** — there is no advanced-settings resource in the provider and no tenant-side equivalent. This is stricter than ZIA, which allows 5 to 20 minutes. Never suggest raising a ZTC session timeout; it does not exist.
+
+Run duration is the only lever. Keep ZTC configurations split across smaller states so no single apply needs to outlive a session, and use the out-of-band activator so the activation you intend is an explicit step.
+
+### Several States, One Tenant — Serialise the Applies
+
+The advice above pushes toward more, smaller states. Be explicit that this does **not** license running them concurrently: splitting state does not split the tenant.
+
+| Behaviour | Consequence for concurrent runs |
+| --- | --- |
+| Every write must acquire a **tenant-wide write lock** ("org barrier") | Concurrent runs contend; losers get `EDIT_LOCK_NOT_AVAILABLE`, `Resource Access Blocked`, or `Failed during enter Org barrier`. Retried automatically, so it looks like a slow run — until retries are exhausted and the apply dies part-way, leaving partial state. |
+| Activation is tenant-wide and can be **queued** behind other editors | A per-state activation does not publish that state's changes independently; when the queue clears, work from an in-flight or failed run is published too. |
+
+Recommend:
+
+- ✅ Keep the state split — required here, since short runs are the only session-timeout mitigation ZTC offers.
+- ✅ Run `plan` concurrently; reads do not take the write lock.
+- ✅ Serialise `apply` with a CI concurrency key on the **tenant** (not the repo, workspace, or state path).
+- ✅ Run `ztcActivator` **once**, after the final apply.
+- ❌ Do not activate per state.
+- ❌ Do not lower `-parallelism` to relieve contention — the longer runtime increases session-boundary exposure, which is worse on ZTC than ZIA because the timeout cannot be raised.
+
+ZTC therefore sits in an awkward spot: it needs small states (short runs) *and* serialised applies (one writer per tenant), which means total pipeline time grows with the number of states. Size each state so its apply finishes comfortably inside a session, and accept the serial pipeline.
+
+See [best-practices-skill → Concurrency Is a Tenant Property](../../best-practices-skill/references/state-management.md#concurrency-is-a-tenant-property-not-a-state-property).
 
 ### Canonical Pattern
 

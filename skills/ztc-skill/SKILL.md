@@ -42,7 +42,7 @@ The provider is pre-1.0 (`~> 0.1.x`). Surface this in the assumptions: schemas m
 | Field             | Why it matters                                                                                              | Default if missing                |
 | ----------------- | ----------------------------------------------------------------------------------------------------------- | --------------------------------- |
 | Provider version  | Pre-1.0; schemas may change. Latest stable is `~> 0.1.x`.                                                    | Assume latest `0.1.x` and state it. |
-| **Auth mode**     | **OneAPI and legacy v3 are both first-class.** Tenant must be migrated to Zidentity for OneAPI; otherwise legacy is the only option. `zscalergov` / `zscalerten` are legacy-only. | **Ask. Do not default.** State both options if unclear. |
+| **Auth mode**     | **OneAPI and legacy v3 are both first-class.** Tenant must be migrated to Zidentity for OneAPI; otherwise legacy is the only option. `zscalergov` / `zscalerten` are legacy-only **on ZTC** — unlike ZIA / ZPA, which support FedRAMP over OneAPI. | **Ask. Do not default.** State both options if unclear. |
 | Cloud target      | OneAPI: `zscaler_cloud` is **optional** and only set for non-prod (e.g. `beta`). Legacy: `ztc_cloud` is required and names the cloud (`zscaler`, `zscloud`, `zscalergov`, …). | **Omit `zscaler_cloud` for production OneAPI.** Ask for legacy. |
 | Activation        | **ANY** create/update/delete on a ZTC resource needs `ztc_activation_status`. Pure data-source workflows do not. | If any resource is touched: include activation. Always. |
 | Cloud orchestration| Which objects already exist in the tenant (created by AWS/Azure/GCP integrations) vs. what TF should create. | Ask. Default: locations and edge connector groups exist. |
@@ -167,10 +167,15 @@ The provider has known reorder race conditions across rule types; v0.1.7 fixed a
 
 **Every** create/update/delete on a ZTC resource produces a draft change that **must** be activated to take effect. Only **pure data-source workflows** (read-only) skip it.
 
+Activation is tenant-wide: one call publishes every pending change, so no configuration needs more than one activation call per run. It can also be **queued** while another administrator or API session holds unactivated changes, in which case it does not publish until they activate.
+
+**One apply at a time per tenant.** Every write acquires a single tenant-wide lock, so several states applying concurrently contend for it and produce `EDIT_LOCK_NOT_AVAILABLE`. Splitting state does not split the tenant: serialise `apply` (keyed on the tenant), keep `plan` parallel, and activate once after the last apply. See [Rules and Ordering](references/rules-and-ordering.md#several-states-one-tenant--serialise-the-applies).
+
 | Pattern                              | When                                                                |
 | ------------------------------------ | ------------------------------------------------------------------- |
-| Manage `ztc_activation_status` in TF | Atomic per-apply activation — recommended for CI/CD.                |
-| `ztcActivator` CLI out-of-band       | When activation is decoupled (e.g. nightly batch).                  |
+| `ztcActivator` CLI out-of-band       | **Recommended.** Any pipeline, and any configuration built from modules. One call, timing under explicit control. |
+| `ztcActivator` once after all applies | **Several states against one tenant.** Never one activation per state. |
+| Manage `ztc_activation_status` in TF | A single flat state that owns all its resources. `depends_on` must list **every** resource, so it does not scale to module-based configurations. |
 | **Skip activation entirely**         | **Only** when the configuration uses `data "ztc_…"` exclusively — no `resource "ztc_…"`. |
 
 Reference pattern (atomic activation):
