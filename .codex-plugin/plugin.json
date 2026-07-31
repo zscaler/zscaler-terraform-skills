@@ -1,6 +1,6 @@
 {
   "name": "zscaler-terraform-skills",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Agent skills that teach OpenAI Codex how to write correct Terraform HCL for the Zscaler providers (ZPA, ZIA, ZTC, ZCC) and how to structure / operate Zscaler-Terraform repositories.",
   "homepage": "https://github.com/zscaler/zscaler-terraform-skills",
   "repository": "https://github.com/zscaler/zscaler-terraform-skills",

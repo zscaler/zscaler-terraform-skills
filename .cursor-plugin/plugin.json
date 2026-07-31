@@ -2,7 +2,7 @@
   "name": "zscaler-terraform-skills",
   "displayName": "Zscaler Terraform Skills",
   "description": "Agent skills that teach Cursor how to write correct Terraform HCL for the Zscaler providers (ZPA, ZIA, ZTC, ZCC) and how to structure / operate Zscaler-Terraform repositories.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "author": {
     "name": "Zscaler"
   },

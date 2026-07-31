@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file. The format is b
 
 Releases are produced automatically by [semantic-release](https://github.com/semantic-release/semantic-release) on every merge to `master` from [conventional commit](https://www.conventionalcommits.org/) messages.
 
+## [0.3.1](https://github.com/zscaler/zscaler-terraform-skills/compare/v0.3.0...v0.3.1) (2026-07-31)
+
+### Bug Fixes
+
+* Updated ZIA, ZPA, ZTC, and ZCC Provider Best Practices ([#11](https://github.com/zscaler/zscaler-terraform-skills/issues/11)) ([3ce4725](https://github.com/zscaler/zscaler-terraform-skills/commit/3ce4725b947eaa0477e5981229e16d9c96785011))
+
 ## [0.3.0](https://github.com/zscaler/zscaler-terraform-skills/compare/v0.2.1...v0.3.0) (2026-05-25)
 
 ### Features
