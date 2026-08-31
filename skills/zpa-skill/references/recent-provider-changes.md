@@ -1,8 +1,23 @@
 # ZPA — Recent Provider Changes
 
-*Auto-generated from `terraform-provider-zpa/CHANGELOG.md` — last updated 2026-07-30.*
+*Auto-generated from `terraform-provider-zpa/CHANGELOG.md` — last updated 2026-08-31.*
 
 Curated subset of recent provider releases that affect HCL users. Internal SDK bumps, library upgrades, and pure refactors are filtered out. Always cross-reference the full upstream changelog at <https://github.com/zscaler/terraform-provider-zpa/blob/master/CHANGELOG.md>.
+
+## v4.4.11 — August 18, 2026
+
+### Features
+
+- [PR #686](https://github.com/zscaler/terraform-provider-zpa/pull/686) - Added ([Issue #684](https://github.com/zscaler/terraform-provider-zpa/issues/684)) the provider attribute `skip_credentials_validation` (env var `ZSCALER_SKIP_CREDENTIALS_VALIDATION`). When enabled, the provider skips credential validation and API client initialization so that configurations where every `zpa_*` resource and data source is conditionally disabled (e.g., `count = 0`) can plan and apply without credentials — e.g., multi-environment deployments where Zscaler is not present in every environment. A warning is emitted at configure time, and any resource or data source that does attempt an API call fails with an explanatory error instead of a panic.
+
+### Deprecations
+
+- [PR #679](https://github.com/zscaler/terraform-provider-zpa/pull/679) - Deprecated the `parallelism` provider attribute. The attribute has no effect and will be removed in a future major release; remove it from the provider block. Rate limiting requires no configuration: when a limit is exceeded, the API returns the interval to wait and the provider retries the request automatically.
+
+### Documentation
+
+- [PR #679](https://github.com/zscaler/terraform-provider-zpa/pull/679) - Removed the `parallelism` attribute from the provider argument reference.
+- [PR #679](https://github.com/zscaler/terraform-provider-zpa/pull/679) - Removed the legacy guidance recommending that the number of concurrent API calls be limited to one when provisioning the resources `zpa_policy_access_rule`, `zpa_policy_inspection_rule`, `zpa_policy_timeout_rule`, `zpa_policy_forwarding_rule`, and `zpa_policy_isolation_rule`. Lowering Terraform's `-parallelism` flag applies to an entire run, cannot be scoped to individual resource types, and significantly slows large deployments.
 
 ## v4.4.10 — July 27, 2026
 
@@ -73,9 +88,3 @@ Curated subset of recent provider releases that affect HCL users. Internal SDK b
 ### Bug Fixes
 
 - [PR #640](https://github.com/zscaler/terraform-provider-zpa/pull/640) - Fixed SCIM operand RHS validation in v1 access policy rules to use case-insensitive comparison (`strings.EqualFold`) so that values like email addresses are matched regardless of casing, consistent with RFC 7643 SCIM attribute semantics.
-
-## v4.4.0 — March, 11 2026
-
-### Enhancements
-
-- [PR #639](https://github.com/zscaler/terraform-provider-zpa/pull/639) - Added new `zpa_tag_namespace`, `zpa_tag_key`, and `zpa_tag_group` resources and data sources for managing tag controller objects.
