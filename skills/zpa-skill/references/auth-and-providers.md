@@ -166,6 +166,34 @@ Rules:
     }
     ```
 
+## Retries, Timeouts, and Rate Limits
+
+Rate limiting needs no configuration: requests are paced to the documented ZPA limits and `Retry-After` is honoured automatically.
+
+| Argument | Default | Use |
+| -------- | ------- | --- |
+| `max_retries` | `100` (max `100`) | Leave unset. Lowering it only makes runs fail sooner. |
+| `request_timeout` | `240` s (range `0`–`300`; `0` = SDK's 60 s) | Raise only if a single request times out. |
+
+- ❌ `parallelism`, `backoff`, `min_wait_seconds`, `max_wait_seconds` — deprecated and ignored (`parallelism` from `v4.4.11`, the others from `v4.4.12`). Remove them.
+- ❌ Zscaler Go SDK env vars (`ZSCALER_CLIENT_RATE_LIMIT_MAX_RETRIES`, `ZSCALER_CLIENT_REQUEST_TIMEOUT`, …) — not provider configuration; ignored.
+- ❌ Changing Terraform's `-parallelism` in either direction.
+- ✅ Slow runs: see [Troubleshooting: Slow Plans](troubleshooting.md#slow-plans-in-large-configurations).
+
+## Conditionally Disabled Provider
+
+For shared configurations where some environments have no ZPA and every `zpa_*` resource has `count = 0`:
+
+```hcl
+provider "zpa" {
+  skip_credentials_validation = !var.zpa_enabled   # or ZSCALER_SKIP_CREDENTIALS_VALIDATION=true
+}
+```
+
+- ✅ Available from `v4.4.11`. Skips client initialization with a warning; any resource or data source that calls the API fails with an explanatory error.
+- ✅ Use only where every ZPA resource is disabled.
+- ❌ Setting it everywhere — missing credentials should fail at configure time in environments that manage ZPA.
+
 ## Credential Hygiene
 
 | ❌ Don't                                                                                | ✅ Do                                                                                                |

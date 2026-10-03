@@ -119,8 +119,11 @@ Equivalent env vars:
 | ------------------ | ------- | ---------------------------------------------------------------------------------------------------- |
 | `http_proxy`       | unset   | Local caching proxy / corporate egress (`ZSCALER_HTTP_PROXY` env).                                   |
 | `parallelism`      | `1`     | Has no effect — the value is read but never applied. Do not set it. Rate limiting is handled by automatic `Retry-After` retries. |
-| `max_retries`      | `5`     | Lower for fast-fail environments; raise for flaky network paths.                                     |
-| `request_timeout`  | `0` (no limit) | Set in seconds (max 300) when running behind aggressive idle-timeout middleware.                |
+| `max_retries`      | `30` (max `100`) | Leave unset. Lowering it only makes runs fail sooner; it never speeds a run up.             |
+| `request_timeout`  | `0` (= SDK's 60 s) | Set in seconds (max 300) only if a single request times out.                              |
+
+❌ Zscaler Go SDK env vars (`ZSCALER_CLIENT_RATE_LIMIT_MAX_RETRIES`, `ZSCALER_CLIENT_REQUEST_TIMEOUT`, …) — not provider configuration; ignored.
+❌ Changing Terraform's `-parallelism` in either direction.
 
 ## Multi-Tenant Layouts
 

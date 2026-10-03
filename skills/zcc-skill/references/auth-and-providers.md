@@ -139,10 +139,13 @@ In CI, gate the env vars by which auth mode the workspace uses — never set bot
 | ------------------- | ------- | -------------------------------------------------------------------------------------------------- |
 | `http_proxy`        | unset   | Local caching proxy / corporate egress (`ZSCALER_HTTP_PROXY` env).                                 |
 | `parallelism`       | ignored | Deprecated and has no effect. Do not set it; remove it from existing provider blocks.              |
-| `max_retries`       | SDK default | Lower for fast-fail environments; raise for flaky network paths.                              |
-| `request_timeout`   | per-request | Set in seconds when running behind aggressive idle-timeout middleware.                         |
-| `min_wait_seconds`  | SDK default | Lower bound for retry backoff.                                                                |
-| `max_wait_seconds`  | SDK default | Upper bound for retry backoff.                                                                |
+| `max_retries`       | `100`   | Leave unset. Lowering it only makes runs fail sooner; it never speeds a run up.                    |
+| `request_timeout`   | `240` s (`0` = SDK's 60 s) | Raise only if a single request times out.                                   |
+| `min_wait_seconds`  | `2`     | Leave unset. Retry back-off follows the API's `Retry-After`; deprecated and ignored from the next release. |
+| `max_wait_seconds`  | `10`    | Leave unset. Deprecated and ignored from the next release.                                         |
+
+❌ Zscaler Go SDK env vars (`ZSCALER_CLIENT_RATE_LIMIT_MAX_RETRIES`, `ZSCALER_CLIENT_REQUEST_TIMEOUT`, …) — not provider configuration; ignored.
+❌ Changing Terraform's `-parallelism` in either direction.
 
 ## Multi-Tenant Layouts
 

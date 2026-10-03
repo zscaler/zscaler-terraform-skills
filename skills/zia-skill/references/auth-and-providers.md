@@ -151,6 +151,26 @@ resource "zia_url_filtering_rules" "acme_block_gambling" {
 
 ✅ Prefer one workspace per tenant.
 
+## Retries, Timeouts, and Rate Limits
+
+Rate limiting needs no configuration: a `429` carries `Retry-After`, which the provider honours automatically.
+
+| Argument | Default | Use |
+| -------- | ------- | --- |
+| `max_retries` | `100` (max `100`) | Leave unset. Lowering it only makes runs fail sooner. |
+| `request_timeout` | `1800` s, sized for large list reads (accepts `0`–`1800` from `v4.8.10`, `0`–`300` before; `0` = SDK's 60 s) | Leave unset unless a single request times out. |
+
+- ❌ `parallelism` — deprecated and ignored. Remove it.
+- ❌ Zscaler Go SDK env vars (`ZSCALER_CLIENT_RATE_LIMIT_MAX_RETRIES`, `ZSCALER_CLIENT_REQUEST_TIMEOUT`, …) — not provider configuration; ignored.
+- ❌ Changing Terraform's `-parallelism` in either direction.
+
+## Conditionally Disabled Provider
+
+For shared configurations where some environments have no ZIA and every `zia_*` resource has `count = 0`, set `skip_credentials_validation = true` (or `ZSCALER_SKIP_CREDENTIALS_VALIDATION=true`) there — available from `v4.8.7`.
+
+- ✅ Skips client initialization with a warning; any resource or data source that calls the API fails with an explanatory error.
+- ❌ Setting it in environments that manage ZIA — missing credentials should fail at configure time.
+
 ## Credential Hygiene
 
 | ❌ Don't                                                                          | ✅ Do                                                                                    |

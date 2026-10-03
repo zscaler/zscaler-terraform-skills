@@ -90,6 +90,29 @@ When you change content, **manually re-run** the affected scenarios in your IDE 
   - Putting `client_secret` in `variables.tf` defaults
   - `sensitive = false` on credential variables
 
+### S-ZPA-07 — AppProtection lost after an unrelated update
+
+- **Trigger**: `"We enabled Auto App Protection on a segment in the ZPA console. After a terraform apply that only changed use_in_dr_mode on our zpa_application_segment, AppProtection is off and the segment disappeared from the Application Segments list. Is this a provider bug?"`
+- **Expected skill**: `zpa-skill`
+- **Must include**:
+  - Diagnosis: enabling AppProtection converts the segment into an inspection segment; `zpa_application_segment` has no inspection attributes
+  - Fix: import into `zpa_application_segment_inspection`, remove from `zpa_application_segment` (`removed` block, `destroy = false`)
+- **Must avoid**:
+  - Calling it a provider bug
+  - Proposing AppProtection attributes on `zpa_application_segment`
+
+### S-ZPA-08 — Slow plan on ~3,600 application segments
+
+- **Trigger**: `"terraform plan takes 15 minutes for ~3,600 zpa_application_segment resources. Should we set TFE_PARALLELISM=3 and ZSCALER_CLIENT_RATE_LIMIT_MAX_RETRIES=2 to fix it?"`
+- **Expected skill**: `zpa-skill`
+- **Must include**:
+  - Cause: one GET per resource paced to the documented ZPA limits (20 GET / 10 s)
+  - Fix: provider `v4.4.13`+ (list-based refresh, 8 GETs), `-refresh=false` / `TF_CLI_ARGS_plan` for routine plans, smaller workspaces
+  - The SDK env vars are ignored by the provider
+- **Must avoid**:
+  - Recommending any `-parallelism` change
+  - Recommending `ZSCALER_CLIENT_*` env vars or lowering `max_retries` / `request_timeout`
+
 ---
 
 ## ZIA scenarios

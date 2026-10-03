@@ -14,8 +14,8 @@ Canonical, minimum-viable HCL for the most-used `zpa_*` resources, plus composit
 | `zpa_server_group`                             | Group of application servers tied to app connectors    | `name`, `enabled`, `app_connector_groups { id = [...] }`                     |
 | `zpa_application_segment`                      | Domain(s) + ports exposed via ZPA (TCP/UDP, no BA)     | `name`, `domain_names`, `tcp_port_ranges` or `udp_port_ranges`, `segment_group_id`, `server_groups { id = [...] }` |
 | `zpa_application_segment_browser_access`       | Browser-access (BA) segment with cert                  | Same as above + `clientless_apps { ... certificate_id ... }`                 |
-| `zpa_application_segment_inspection`           | App segment under AppProtection inspection              | Same as base + `inspection_apps { ... }`                                     |
-| `zpa_application_segment_pra`                  | Privileged Remote Access (PRA) segment                 | Same as base + `pra_apps { ... }`                                            |
+| `zpa_application_segment_inspection`           | App segment under AppProtection / AD Inspection         | Same as base + `common_apps_dto { apps_config { ... } }`                     |
+| `zpa_application_segment_pra`                  | Privileged Remote Access (PRA) segment                 | Same as base + `common_apps_dto { apps_config { ... } }`                     |
 | `zpa_policy_access_rule`                       | Allow / deny access policy rule                        | `name`, `action`, `policy_set_id` (data lookup), at least one `conditions`   |
 | `zpa_policy_access_forwarding_rule`            | Forwarding policy rule                                 | Same shape as access rule, different `policy_set_id`                          |
 | `zpa_policy_access_isolation_rule`             | Browser isolation policy rule                          | Same shape as access rule, isolation `action`, `policy_set_id`                |
@@ -147,7 +147,8 @@ resource "zpa_application_segment_browser_access" "wiki" {
   bypass_type      = "NEVER"
   is_cname_enabled = true
 
-  domain_names = ["wiki.example.com"]
+  domain_names    = ["wiki.example.com"]
+  tcp_port_ranges = ["443", "443"]
 
   segment_group_id = zpa_segment_group.wiki.id
 
@@ -169,7 +170,48 @@ data "zpa_ba_certificate" "wildcard" {
 }
 ```
 
-❌ Do not put `tcp_port_ranges` on a BA segment — the port lives inside `clientless_apps.application_port`.
+✅ Every `clientless_apps.application_port` must also be in the segment's `tcp_port_ranges` (or `tcp_port_range` block); otherwise the API rejects it with `invalid.clientless.port`.
+
+## Inspection Segment (AppProtection / AD Inspection)
+
+The only resource that supports Auto App Protection and Active Directory Inspection.
+
+```hcl
+resource "zpa_application_segment_inspection" "jenkins" {
+  name                     = "Jenkins"
+  enabled                  = true
+  bypass_type              = "NEVER"
+  auto_app_protect_enabled = true
+  domain_names             = ["jenkins.example.com"]
+  tcp_port_ranges          = ["443", "443"]
+  segment_group_id         = zpa_segment_group.apps.id
+
+  server_groups {
+    id = [zpa_server_group.apps.id]
+  }
+
+  common_apps_dto {
+    apps_config {
+      domain               = "jenkins.example.com"
+      application_protocol = "HTTPS"
+      application_port     = "443"
+      app_types            = ["INSPECT"]
+      trust_untrusted_cert = true
+    }
+  }
+}
+```
+
+### Inspection segment rules
+
+- ✅ One `common_apps_dto` block; one `apps_config` block per app inside it. Removing an `apps_config` block deletes that app (provider `v4.4.12`+).
+- ✅ Each `apps_config.domain` must be in `domain_names`; each `application_port` in the port ranges.
+- ✅ `application_protocol` (`HTTP` / `HTTPS`) is required in every `apps_config`, even with `auto_app_protect_enabled = true` — the API rejects requests without it.
+- ✅ `certificate_id` is required for `HTTPS` when `auto_app_protect_enabled` is unset or `false` (`v4.4.12`+ enforces at plan time). ❌ Never set it for `HTTP`.
+- ✅ `trust_untrusted_cert = true` = Admin Portal "Use Untrusted Certificates".
+- ❌ `auto_app_protect_enabled` and `adp_enabled` together — mutually exclusive.
+- ❌ Two `common_apps_dto` blocks — only the first is sent; the plan never converges.
+- ❌ AppProtection on a `zpa_application_segment` — see [Troubleshooting: AppProtection Segment](troubleshooting.md#appprotection-segment-disappears-after-an-update).
 
 ## Microtenant
 
@@ -285,6 +327,7 @@ resource "zpa_application_segment" "internal" {
 | Existing segment group by name              | `data "zpa_segment_group" "x" { name = "..." }`                                  |
 | Existing IdP controller (Okta, Azure AD)    | `data "zpa_idp_controller" "x" { name = "..." }`                                 |
 | SCIM group from an IdP                      | `data "zpa_scim_groups" "x" { name = "...", idp_name = "..." }`                  |
+| SCIM group name shared across IAM IdPs (ZIdentity) | Add `iam_idp_name = "..."` (or `iam_idp_id`) — `v4.4.13`+; fails listing candidates if still ambiguous |
 | SCIM attribute from an IdP                  | `data "zpa_scim_attribute_header" "x" { name = "...", idp_name = "..." }`        |
 | SAML attribute                              | `data "zpa_saml_attribute" "x" { name = "..." }`                                 |
 | Posture profile                             | `data "zpa_posture_profile" "x" { name = "..." }` (use `.posture_udid` for rule) |
