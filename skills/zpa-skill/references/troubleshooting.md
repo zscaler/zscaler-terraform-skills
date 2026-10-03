@@ -28,6 +28,9 @@ This enables Terraform's debug logging **and** the Zscaler SDK's HTTP request/re
 | `401 unauthorized` or `vanity_domain not found`                                                  | [auth-and-providers.md → Common Auth Errors](auth-and-providers.md#common-auth-errors) |
 | Stale resources blocking `terraform apply` after a failed run                                    | [Stale Test / PoC Resources](#stale-test--poc-resources)      |
 | Want to remove a resource without deleting in ZPA                                                | [Never `state rm` a ZPA Resource](#never-state-rm-a-zpa-resource) |
+| AppProtection / AD Inspection turned off, segment missing from the console list after an apply   | [AppProtection Segment Disappears After an Update](#appprotection-segment-disappears-after-an-update) |
+| `terraform plan` takes many minutes on a large configuration                                     | [Slow Plans in Large Configurations](#slow-plans-in-large-configurations) |
+| `api.concurrent.access.error` on a policy rule create, update, or delete                         | [Concurrent Policy Rule Writes](#concurrent-policy-rule-writes) |
 
 ---
 
@@ -210,6 +213,50 @@ removed {
 
 ---
 
+## AppProtection Segment Disappears After an Update
+
+Symptom: after an apply that touched a `zpa_application_segment` — even an unrelated attribute — Auto App Protection or AD Inspection is off, the per-domain AppProtection config is incomplete, and the segment is missing from the console's main Application Segments list.
+
+Cause: enabling Auto App Protection or AD Inspection (e.g. in the Admin Portal) converts the segment into an inspection segment. `zpa_application_segment` has no inspection attributes, so its update disables them. Not a provider bug.
+
+| Step | Action |
+| ---- | ------ |
+| 1 | Repair the segment in the console (reachable from its segment group), or uncheck the per-domain AppProtection box. |
+| 2 | `terraform import` it into `zpa_application_segment_inspection`. |
+| 3 | Remove it from `zpa_application_segment` with a `removed { lifecycle { destroy = false } }` block. |
+
+✅ Manage AppProtection / AD Inspection only through `zpa_application_segment_inspection` — see [Resource Catalog: Inspection Segment](resource-catalog.md#inspection-segment-appprotection--ad-inspection).
+❌ Toggling AppProtection in the console on a segment Terraform manages as `zpa_application_segment`.
+
+## Slow Plans in Large Configurations
+
+Cause: the provider paces requests to the documented ZPA limits (20 GET / 10 POST-PUT-DELETE per 10 s).
+
+| Provider | Refresh of 3,600 application segments |
+| -------- | ------------------------------------- |
+| `< v4.4.13` | 3,600 GETs — at least 30 minutes |
+| `v4.4.13`+ | 8 GETs — list endpoint, 500 per page |
+
+From `v4.4.13`, list-based refresh covers application segments, application servers, segment, server, and app connector groups, and v1/v2 access, timeout, and forwarding rules. Applies still cost one write per changed resource.
+
+- ✅ Upgrade to `v4.4.13`+.
+- ✅ Routine changes: `terraform plan -refresh=false` (TFE / HCP Terraform: workspace variable `TF_CLI_ARGS_plan="-refresh=false"`); full refresh periodically.
+- ✅ Configurations that keep growing: split into smaller workspaces (by segment group or application domain).
+- ❌ Changing `-parallelism` in either direction.
+- ❌ Zscaler Go SDK env vars (`ZSCALER_CLIENT_RATE_LIMIT_MAX_RETRIES`, `ZSCALER_CLIENT_REQUEST_TIMEOUT`) — ignored by the provider. See [Auth & Providers: Retries and Timeouts](auth-and-providers.md#retries-timeouts-and-rate-limits).
+
+## Concurrent Policy Rule Writes
+
+Symptom: `400 api.concurrent.access.error — Unable to modify the resource due to concurrent change requests`.
+
+Cause: ZPA policy rule endpoints accept one write at a time. Before `v4.4.13`, v1 and v2 rule resources of the same policy type in one apply were not serialized against each other.
+
+- ✅ Upgrade to `v4.4.13`+ (all policy rule writes share one lock).
+- ✅ Below `v4.4.13`: apply v1 rules first (`-target`), then the rest.
+- ❌ Several concurrent applies modifying policy rules.
+
+---
+
 ## Quick Reference
 
 | Problem                                            | First thing to try                                                                     |
@@ -221,3 +268,6 @@ removed {
 | `already exists` on apply                          | Rename or `terraform import`. Never `state rm` and retry with same name.               |
 | Want to stop managing without deleting             | Use `removed { lifecycle { destroy = false } }`.                                       |
 | Need to capture HTTP for support ticket            | `TF_LOG=DEBUG ZSCALER_SDK_VERBOSE=true ZSCALER_SDK_LOG=true terraform plan` and redact tokens. |
+| AppProtection lost after an apply                  | Move the segment to `zpa_application_segment_inspection`.                              |
+| Slow plan on a large configuration                 | Provider `v4.4.13`+; `-refresh=false` for routine plans; smaller workspaces.           |
+| `api.concurrent.access.error` on a policy rule     | Provider `v4.4.13`+; one apply modifying policy rules at a time.                       |

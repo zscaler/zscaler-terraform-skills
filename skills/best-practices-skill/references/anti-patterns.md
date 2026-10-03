@@ -32,6 +32,8 @@ Recurring footguns enumerated. Each entry shows the bad pattern and the fix. For
 | Activating once per workspace / per state                    | One activation after the final apply                          | [CI/CD](ci-cd-zscaler.md#activation-as-a-pipeline-stage) |
 | Mixed v1 and v2 ZPA policy resources                         | Use `zpa_policy_*_v2` consistently                            | `zpa-skill` → policy-rules.md                    |
 | Lowering `-parallelism` to handle rate limits                | Leave it at the default; retries are automatic               | (here)                                           |
+| `ZSCALER_CLIENT_*` SDK env vars to tune the providers        | Documented provider arguments only; defaults suit almost all | (here)                                           |
+| AppProtection / AD Inspection on a `zpa_application_segment` | `zpa_application_segment_inspection`                         | (here)                                           |
 | Hardcoded cross-provider IDs                                 | Data source lookup with `provider =` alias                   | (here)                                           |
 | Examples that don't `terraform plan` cleanly                 | Complete, runnable examples; CI validates                    | [Module Patterns](module-patterns.md)            |
 | Variables with no `description`                              | Always describe purpose + allowed values                     | [Variables](variables-and-outputs.md)            |
@@ -59,8 +61,25 @@ terraform apply
 ```
 
 ❌ `-parallelism=1` (or any reduced value) for a bulk import.
-❌ `provider "zia" { parallelism = 1 }` — this argument is deprecated and ignored; remove it.
+❌ `parallelism = 1` in any Zscaler provider block — deprecated and ignored in all four providers; remove it.
+❌ Raising `-parallelism` — not a supported tuning either.
 ✅ Terraform's default parallelism, always.
+
+### Tuning the providers with SDK environment variables
+
+`ZSCALER_CLIENT_RATE_LIMIT_MAX_RETRIES`, `ZSCALER_CLIENT_REQUEST_TIMEOUT`, and the other `ZSCALER_CLIENT_*` rate-limit variables belong to the Zscaler Go SDK. The providers set their own values, so these variables are ignored.
+
+❌ `ZSCALER_CLIENT_RATE_LIMIT_MAX_RETRIES=2` / `ZSCALER_CLIENT_REQUEST_TIMEOUT=15` in a workspace — no effect; if honoured they would fail runs on one transient error or abort slow list requests.
+❌ Lowering `max_retries` or `request_timeout` to "speed up" a run — neither changes throughput.
+✅ No tuning. Supported arguments are `max_retries` and `request_timeout` only, per the provider's registry docs.
+✅ Slow ZPA plans: provider `v4.4.13`+ (list-based refresh), `-refresh=false` for routine plans, smaller workspaces — see `zpa-skill` → troubleshooting.md.
+
+### AppProtection on a `zpa_application_segment`
+
+Enabling Auto App Protection or AD Inspection on a segment converts it into an inspection segment. `zpa_application_segment` has no inspection attributes, so its next update disables them and the segment drops out of the console's main list.
+
+❌ Toggling AppProtection in the Admin Portal on a segment Terraform manages as `zpa_application_segment`.
+✅ `zpa_application_segment_inspection` for any segment with AppProtection or AD Inspection; import converted segments into it.
 
 ### Hardcoded cross-provider IDs
 
@@ -172,6 +191,7 @@ ZPA introduced `zpa_policy_*_v2` resources with a different operand structure. M
 
 ❌ `zpa_policy_access_rule` (v1) and `zpa_policy_access_rule_v2` (v2) side-by-side.
 ✅ Use `zpa_policy_access_rule_v2` consistently for new configurations. Migrate v1 to v2 in a dedicated PR.
+❌ Below ZPA provider `v4.4.13`, creating v1 and v2 rules of the same policy type in one apply fails with `api.concurrent.access.error` — from `v4.4.13` all rule writes are serialized.
 
 ### Mixing `ZSCALER_*` and `<product>_*` env vars
 

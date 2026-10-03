@@ -69,6 +69,8 @@ This document is a **contract**: every PR that adds a new hallucination surface 
 | 33 | Hardcodes a ZPA server-group / app-segment ID into a ZIA `zia_forwarding_control_zpa_gateway`               | S-BP-04            | `best-practices-skill/references/cross-product-equivalents.md#cross-product-composition-recipes` + `references/anti-patterns.md#hardcoded-cross-provider-ids` | ✅       |
 | 34 | Defaults to parent-tenant scope on a microtenant tenant (omits `microtenant_id` on resources + data sources) | S-ZPA-05           | `zpa-skill/SKILL.md` Microtenants + `best-practices-skill/SKILL.md` Diagnose row "Defaults-to-parent-tenant"                            | ✅       |
 | 35 | Recommends mixing `ZSCALER_*` and `<product>_*` env vars in one CI job                                      | S-ZIA-05 / S-ZTC-04 / S-ZCC-04 | `best-practices-skill/references/cross-product-equivalents.md#auth-env-var-matrix` + `references/anti-patterns.md#mixing-zscaler_-and-product_-env-vars` | ✅       |
+| 36 | Treats AppProtection loss on a `zpa_application_segment` as a provider bug, or adds inspection attributes to it | S-ZPA-07 | `zpa-skill/references/troubleshooting.md#appprotection-segment-disappears-after-an-update` + `references/resource-catalog.md#inspection-segment-appprotection--ad-inspection` | ◐       |
+| 37 | Recommends `-parallelism`, `ZSCALER_CLIENT_*` SDK env vars, or lower retries/timeouts to speed up large ZPA plans | S-ZPA-08 | `zpa-skill/references/troubleshooting.md#slow-plans-in-large-configurations` + `best-practices-skill/references/anti-patterns.md#tuning-the-providers-with-sdk-environment-variables` | ◐       |
 
 ### Coverage Summary
 
