@@ -1,127 +1,94 @@
 # ZIA — Recent Provider Changes
 
-*Auto-generated from `terraform-provider-zia/CHANGELOG.md` — last updated 2026-07-30.*
+*Auto-generated from `terraform-provider-zia/CHANGELOG.md` — last updated 2026-10-19.*
 
 Curated subset of recent provider releases that affect HCL users. Internal SDK bumps, library upgrades, and pure refactors are filtered out. Always cross-reference the full upstream changelog at <https://github.com/zscaler/terraform-provider-zia/blob/master/CHANGELOG.md>.
 
-## v4.8.1 — July, 30 2026
+## v4.8.13 — October 15, 2026
 
-### NEW - RESOURCES AND DATA SOURCES
+### Bug Fixes
 
-- [PR #592](https://github.com/zscaler/terraform-provider-zia/pull/592) - Added the resource and data source `zia_ueba_alert_definitions` - Creates and retrieves alert definitions. [Configuring an Alert Rule](https://help.zscaler.com/zia/configuring-alert-rule)
-
-### Enhancements
-
-- [PR #592](https://github.com/zscaler/terraform-provider-zia/pull/592) - Removed an internal request-serialization layer that caused the resources `zia_url_categories`, `zia_auth_settings_urls`, and `zia_security_policy_settings` to be created and updated one at a time across an entire configuration. Deployments that create or update large numbers of URL categories now run concurrently and complete significantly faster.
-
-### Deprecations
-
-- [PR #592](https://github.com/zscaler/terraform-provider-zia/pull/592) - Deprecated the `parallelism` provider attribute. The attribute has no effect and will be removed in a future major release; remove it from the provider block. Rate limiting requires no configuration: when a limit is exceeded, the API returns the interval to wait and the provider retries the request automatically.
+- [PR #613](https://github.com/zscaler/terraform-provider-zia/pull/613) - Fixed deleting objects that are first detached from the rules that reference them (for example `zia_url_categories`, which is detached from URL filtering, SSL inspection, Sandbox, File Type Control, Bandwidth Classes, Firewall DNS, Firewall IPS, FTP control and DLP web rules) failing on tenants without a subscription to one of those rule types. When reading a rule type returns `403` (missing subscription such as `NOT_SUBSCRIBED`, or no access for the admin role), that rule type is now skipped, since nothing in it can reference the object. Other errors still fail the delete.
+- [PR #613](https://github.com/zscaler/terraform-provider-zia/pull/613) - `zia_http_header_profile`: `user_agent` in `http_header_profile_criteria` accepted only the predefined browser values (`OPERA`, `FIREFOX`, ...), so a custom user agent string could not be set. It now accepts any string, for use with `user_agent_bitmap = "OTHER"`.
 
 ### Documentation
 
-- [PR #592](https://github.com/zscaler/terraform-provider-zia/pull/592) - Removed all guidance recommending that Terraform's `-parallelism` flag be lowered for bulk operations. The flag applies to an entire run and cannot be scoped to individual resource types, and lowering it severely slows deployments of rule-based resources, where rule placement is reconciled for each batch of concurrently created rules.
-- [PR #592](https://github.com/zscaler/terraform-provider-zia/pull/592) - Corrected the documented default for the `max_retries` provider attribute, which is `100` and was previously documented as `5`.
+- [PR #613](https://github.com/zscaler/terraform-provider-zia/pull/613) - `zia_http_header_profile`: Added the missing arguments and attributes to the data source documentation, clarified that `user_agent` is the custom user agent string used with `user_agent_bitmap = "OTHER"`, and added a custom user agent example to the resource documentation.
 
-## v4.8.0 — July, 20 2026
-
-### NEW - RESOURCES AND DATA SOURCES
-
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the resource and data source `zia_dlp_global_options` - Retrieves and updates the existing DLP Advanced Settings.
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the resource and data source `zia_dns_application_groups` - Creates and retrieves DNS application groups.
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the resource and data source `zia_endpoint_dlp_custom_apps` - Creates and retrieves custom Endpoint DLP applications.
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the resource and data source `zia_endpoint_dlp_rules` - Creates and retrieves Endpoint DLP policy rules.
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the resource and data source `zia_outbound_email_dlp` - Creates and retrieves Outbound Email DLP policy rules.
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the resource `zia_endpoint_dlp_application_group` - Creates and manages Endpoint DLP application groups.
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the resource `zia_endpoint_dlp_resource` - Creates and manages Endpoint DLP resources.
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the resource `zia_endpoint_dlp_resource_group` - Creates and manages Endpoint DLP resource groups (tags).
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the resource `zia_endpoint_dlp_sub_rules` - Creates and manages exception (sub) rules under an Endpoint DLP policy rule.
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the data source `zia_endpoint_dlp_application` - Retrieves an Endpoint DLP application by name or ID.
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the data source `zia_dlp_endpoint_resource_channels` - Retrieves DLP resources configured for a specific channel.
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the data source `zia_dlp_endpoint_resource_group_tag` - Retrieves DLP endpoint resource tags defined for a channel.
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the data source `zia_eun_template_product` - Retrieves browser-based and Zscaler Client Connector notification templates by policy type.
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - Added the data source `zia_eun_user_confirmation_template_product` - Retrieves user confirmation notification templates by policy type.
-
-### Enhancements
-
-- [PR #587](https://github.com/zscaler/terraform-provider-zia/pull/587) - The resources `zia_ssl_inspection_rules`, `zia_firewall_filtering_rule`, `zia_firewall_dns_rule` now support the following attributes to configure policy rule conditions based on endpoint applications, endpoint application tags, and endpoint application threat levels:
-
-## v4.7.26 — June, 26 2026
-
-### Enhancements
-
-- [PR #583](https://github.com/zscaler/terraform-provider-zia/pull/583) - Added new Resource and Data sources for HTTP Header Control
-- [PR #583](https://github.com/zscaler/terraform-provider-zia/pull/583) - The `zia_url_categories` resource now automatically detaches a custom URL category from any rules that reference it before deleting the category. This removes the need to manually remove the category from rules first and avoids the API error returned when deleting a category that is still in use.
-
-## v4.7.25 — June, 23 2026
-
-### Enhancements
-
-- [PR #582](https://github.com/zscaler/terraform-provider-zia/pull/582) Added new datasource `zia_adaptive_access_profile`.
+## v4.8.12 — October 8, 2026
 
 ### Bug Fixes
 
-- [PR #582](https://github.com/zscaler/terraform-provider-zia/pull/582) - Fixed a crash in the `zia_user_management` data source when reading a user that belongs to one or more groups.
+- [PR #611](https://github.com/zscaler/terraform-provider-zia/pull/611) - `zia_dlp_web_rules`, `zia_endpoint_dlp_rules`, `zia_endpoint_dlp_sub_rules`, `zia_outbound_email_dlp`: Updates rejected by the API (for example `500 UNEXPECTED_ERROR` for an invalid `cloud_applications` value) now fail immediately with the API error. Previously every error was retried every 5 seconds until the update timeout, so an apply could run for 20 minutes or more and end with `context deadline exceeded` instead of the actual error. Updates now retry the same errors as creates.
 
-## v4.7.24 — June, 1 2026
-
-### Bug Fixes
-
-- [PR #579](https://github.com/zscaler/terraform-provider-zia/pull/579) - Fixed the `zia_user_management` resource to read the user's `name` and `email` from the user list instead of the single-user lookup. On tenants migrated to Zidentity the single-user lookup returned these fields in an encoded form, which produced a perpetual in-place update on every `terraform plan`.
-- [PR #579](https://github.com/zscaler/terraform-provider-zia/pull/579) - Fixed a crash in the `zia_user_management` resource when reading a user that belongs to one or more groups.
-
-## v4.7.23 — May, 28 2026
+## v4.8.11 — October 8, 2026
 
 ### Bug Fixes
 
-- [PR #578](https://github.com/zscaler/terraform-provider-zia/pull/578) - Fixed a regression in the `zia_url_categories` resource where `terraform plan` could fail immediately after `terraform import` (or any time the API returned the `urls` list in a different order than the one declared in HCL) on v4.7.22. Imports of large existing custom URL categories now plan cleanly, and re-ordering URLs in the configuration continues to produce no diff. Follow-up to [issue #575](https://github.com/zscaler/terraform-provider-zia/issues/575).
-- [PR #578](https://github.com/zscaler/terraform-provider-zia/pull/578) - Removed `MaxItems` from attribute `tenancy_profile_ids` and `cloud_app_instances` in the resource `zia_cloud_app_control_rule` to allow API own limit delegation. To find the exact number of tenant profiles or cloud app instances allowed per rule, please consult the [API documentation](https://automate.zscaler.com/docs/api-reference-and-guides/api-reference/zia/cloud-app-control-policy/web-application-rule-resource-add-rule)
-
-## v4.7.22 — May, 27 2026
-
-### Enhancements
-
-- [PR #576](https://github.com/zscaler/terraform-provider-zia/pull/576) - Added a `search` argument to the `zia_cloud_app_control_rule_actions` data source for client-side [JMESPath](https://jmespath.org/) filtering of the available action list. The expression operates on the action strings (for example, `"[?starts_with(@, 'ALLOW_')]"`) and is applied before the ISOLATE split and the `action_prefixes` filter, so every output attribute reflects the narrowed set.
-- [PR #576](https://github.com/zscaler/terraform-provider-zia/pull/576) - Added New Datasource `zia_supported_browser_version` to retrieve a list of all supported browsers and their versions
-- [PR #576](https://github.com/zscaler/terraform-provider-zia/pull/576) - Added support for Smart Isolation configuration in the resource `zia_browser_control_policy`
-
-### Bug Fixes
-
-- [PR #576](https://github.com/zscaler/terraform-provider-zia/pull/576) - Significantly reduced refresh, plan, and apply time on `zia_url_categories` resources holding large numbers of URLs. In our reproducer with a single custom category containing 20,000 URLs, fresh-create dropped from several minutes to around 35 seconds and refresh dropped from many minutes to around 20 seconds. Re-ordering URLs in the configuration (or the API returning them in a different order) no longer produces a diff. Addresses [issue #575](https://github.com/zscaler/terraform-provider-zia/issues/575).
+- [PR #610](https://github.com/zscaler/terraform-provider-zia/pull/610) - `zia_dlp_web_rules`: Fixed `file_type_categories` drift on rules configured with `file_types`. The API returns the file type category derived from the configured file types, which the provider previously planned to remove on every run. `file_type_categories` is now computed when not configured, only the attribute set in the configuration is sent to the API, and setting both `file_types` and `file_type_categories` is rejected at plan time.
+- [PR #610](https://github.com/zscaler/terraform-provider-zia/pull/610) - `zia_dlp_web_rules`: Fixed applies never finishing when the API stores a different rank for DLP rules than the one configured (observed with Admin Ranking disabled: rank `7` configured, rank `0` stored). Rule placement now uses the rank stored by the API, so DLP rules reach their declared order.
+- [PR #610](https://github.com/zscaler/terraform-provider-zia/pull/610) - `zia_firewall_dns_rule`: Fixed rules with a redirect IP (for example `action = "REDIR_REQ"`) failing to be placed in their declared order with `Redirect IP address must be provided.`, and showing `redirect_ip` drift on every plan. After a rule has been updated, the API stops returning its redirect IP while still requiring it on updates; the provider now uses the configured `redirect_ip` in both cases.
+- [PR #610](https://github.com/zscaler/terraform-provider-zia/pull/610) - `zia_url_filtering_rules`: `url_categories` is now required and must contain at least one value (use `["ANY"]` for all categories). The API rejects URL filtering rules without URL categories, so the error is now reported at plan time instead of during apply.
+- [PR #610](https://github.com/zscaler/terraform-provider-zia/pull/610) - Fixed runs failing with `403 Resource Access Blocked` once the ZIA API session ends part-way through a long apply (API Session Timeout, 5 to 20 minutes). The provider now obtains a new session and retries the request automatically. Other `403` errors, such as missing permissions, still fail immediately.
+- [PR #610](https://github.com/zscaler/terraform-provider-zia/pull/610) - Fixed a provider crash when updating rule-based resources (`zia_firewall_filtering_rule`, `zia_firewall_dns_rule`, `zia_firewall_ips_rule`, `zia_url_filtering_rules`, `zia_ssl_inspection_rules`, `zia_file_type_control_rules`, `zia_sandbox_rules`, `zia_forwarding_control_rule`, `zia_traffic_capture_rules`, `zia_cloud_app_control_rule`) if the list of existing rules could not be retrieved. The API error is now reported instead.
 
 ### Documentation
 
-- [PR #576](https://github.com/zscaler/terraform-provider-zia/pull/576) - Expanded the JMESPath examples in the `zia_cloud_applications` data source documentation with category matches, friendly-name substring search, AND/OR composition, projection, and exact-name lookups.
-- [PR #576](https://github.com/zscaler/terraform-provider-zia/pull/576) - Added a new "Dynamically Resolving `applications` and `actions`" section to the `zia_cloud_app_control_rule` resource documentation, showing how to pull both the application list and the action list from their data sources (with and without JMESPath) so rules self-update as Zscaler adjusts its cloud-application catalog.
-- [PR #576](https://github.com/zscaler/terraform-provider-zia/pull/576) - Added dynamic `cloud_applications` / `applications` resolution examples to the `zia_dlp_web_rules`, `zia_ssl_inspection_rules`, `zia_firewall_dns_rule`, and `zia_file_type_control_rules` resource documentation.
+- [PR #610](https://github.com/zscaler/terraform-provider-zia/pull/610) - Added an "API Errors During Plan or Apply" section to the troubleshooting guide covering `403 Resource Access Blocked` (API client role or an ended API session), intermittent `401` errors with an empty code and message, activation hangs caused by `ZIA_ACTIVATION`, requests that stall until the operation timeout, and `Rule is not allowed at order N` after deleting a rule.
+- [PR #610](https://github.com/zscaler/terraform-provider-zia/pull/610) - Added a recommendation to the provider documentation and the `zia_advanced_settings` resource to set the ZIA API Session Timeout to its maximum of 20 minutes before using the provider, since ZIA activates pending changes whenever an API session ends.
 
-## v4.7.21 — May, 12 2026
+## v4.8.10 — October 5, 2026
+
+### Bug Fixes
+
+- [PR #609](https://github.com/zscaler/terraform-provider-zia/pull/609) - Fixed the `request_timeout` provider attribute rejecting values above `300` even though its default is `1800`; explicit values up to `1800` are now accepted, so users can lower the timeout from the default without also being prevented from choosing anything between the two.
+- [PR #609](https://github.com/zscaler/terraform-provider-zia/pull/609) - Added missing eun template attributes to `zia_firewall_filtering_rule` resource
+- [PR #609](https://github.com/zscaler/terraform-provider-zia/pull/609) - Added `BRAVE` to `user_agent_bitmap` and `user_agent` attributes in the resource `zia_http_header_profile`
+
+### Documentation
+
+- [PR #609](https://github.com/zscaler/terraform-provider-zia/pull/609) - Corrected the provider argument reference for `request_timeout` (the default is `1800` seconds; `0` selects the SDK's built-in 60-second timeout rather than disabling the timeout), and added a note explaining that rate limiting requires no configuration, that `max_retries` and `request_timeout` are the only supported tuning attributes, that neither affects request throughput, and that Zscaler Go SDK environment variables such as `ZSCALER_CLIENT_RATE_LIMIT_MAX_RETRIES` are not part of the provider's configuration and are ignored.
+
+## v4.8.8 — August, 26 2026
+
+### Bug Fixes
+
+- [PR #603](https://github.com/zscaler/terraform-provider-zia/pull/603) - Added new ZIA  attribute to resource and datasource `zia_cloud_app_control_rule`
+
+## v4.8.7 — August,17 2026
+
+### Bug Fixes
+
+- [PR #602](https://github.com/zscaler/terraform-provider-zia/pull/602) - Fixed a hang affecting all rule-based resources (e.g. `zia_firewall_filtering_rule`, `zia_cloud_app_control_rule`) when the configured rule orders cannot be satisfied by the service — for example when rules not managed by Terraform occupy positions inside the configured order range, or duplicate order values exist in the tenant. Previously the apply could run for hours repeatedly re-applying the same rule orders until the operation timed out; the provider now detects the situation, stops after a bounded number of attempts, and completes the apply with a warning naming the affected rules and their configured versus actual positions (visible with `TF_LOG=INFO` or higher). The remaining differences appear in the next `terraform plan`. Rule order updates are now also logged individually to simplify troubleshooting.
+
+### Features
+
+- [PR #602](https://github.com/zscaler/terraform-provider-zia/pull/602) - Added the provider attribute `skip_credentials_validation` (env var `ZSCALER_SKIP_CREDENTIALS_VALIDATION`). When enabled, the provider skips credential validation and API client initialization so that configurations where every `zia_*` resource and data source is conditionally disabled (e.g., `count = 0`) can plan and apply without credentials — e.g., multi-environment deployments where Zscaler is not present in every environment. A warning is emitted at configure time, and any resource or data source that does attempt an API call fails with an explanatory error instead of a panic. See ([ZPA Issue #684](https://github.com/zscaler/terraform-provider-zpa/issues/684)) for the motivating use case.
+
+## v4.8.6 — August, 7 2026
 
 ### Enhancements
 
-- [PR #569](https://github.com/zscaler/terraform-provider-zia/pull/569) - Enhanced the `zia_firewall_filtering_rule` data source to return a list of rules via the new `rules` block when no single-rule lookup is supplied, so multiple rules can be iterated with `for_each`. Added optional filter arguments (`rule_name`, `rule_label`, `rule_action`, `department`, `device_group`, `nw_application`, and others) and a `search` argument for client-side [JMESPath](https://jmespath.org/) filtering. Single-rule lookup still works — use `rule_id` for the numeric lookup (previously `id`) or `name` for the name lookup. Addresses [issue #568](https://github.com/zscaler/terraform-provider-zia/issues/568).
+- [PR #601](https://github.com/zscaler/terraform-provider-zia/pull/601) - Added new resource `zia_pac_files` to create and manage hosted PAC files, including PAC content validation, versioned content changes, and version status transitions (`DEPLOYED`, `STAGE`, `LKG`, `UNSTAGED`). The initial version of a PAC file is always deployed; content changes are saved as new versions of the same PAC file and transitioned to the declared status.
+- [PR #601](https://github.com/zscaler/terraform-provider-zia/pull/601) - Added new data source `zia_pac_files` to retrieve the list of hosted PAC files in deployed state, including default and custom PAC files. A single PAC file can be retrieved by `id` or `name`, and the PAC file content can be omitted from the results via the `filter` attribute.
+- [PR #601](https://github.com/zscaler/terraform-provider-zia/pull/601) - Enhanced the data source `zia_cloud_app_control_rule_actions` to return the complete set of actions supported for the specified applications and rule type. Previously, some newer actions (e.g., `ALLOW_FILE_SHARE_UPLOAD`, `ALLOW_FILE_SHARE_VIEW`) were missing from the results, requiring users to hard-code actions from the API documentation. On clouds where the complete action list is not yet available, the data source automatically falls back to the original action lookup. This addresses [issue #522](https://github.com/zscaler/terraform-provider-zia/issues/522)
 
-### New Resources
+## v4.8.5 — August, 6 2026
 
-- [PR #569](https://github.com/zscaler/terraform-provider-zia/pull/569) - Added new resource `zia_ips_signature_rules` to create and manage custom IPS signature rules. `rule_text` is validated by the Zscaler validation endpoint on every create and update, and any syntax error is surfaced before state is committed.
+### Bug Fixes
 
-### New Data Sources
+- [PR #600](https://github.com/zscaler/terraform-provider-zia/pull/600) - Fixed the resource `zia_url_filtering_and_cloud_app_settings`, which rejected updates with `Request body is invalid.` and could not turn a setting back off. Updates now carry every supported setting, so disabling one takes effect; the retired Skype attribute is no longer sent; and `safe_search_apps` is sent only when applications are specified. The `safe_search_apps` attribute also adopts the value returned by the service when it is not declared in the configuration, which removes a plan difference that reappeared on every run.
+- [PR #600](https://github.com/zscaler/terraform-provider-zia/pull/600) - Added new ZIA URL Filtering and Cloud App Sdettings attributes:
 
-- [PR #569](https://github.com/zscaler/terraform-provider-zia/pull/569) - Added new data source `zia_ips_signature_rules` to look up a custom IPS signature rule by `id` or `name`.
+## v4.8.4 — August, 5 2026
 
-## v4.7.20 — May, 7 2026
+### Bug Fixes
+
+- [PR #599](https://github.com/zscaler/terraform-provider-zia/pull/599) - Fixed resource zia_browser_control_policy to support tenants without a Cloud Browser Isolation profile where the service still returns a smart_isolation_profile object with every member empty. That was recorded in state as a profile the user never declared, so the next plan tried to remove it and called
+- [PR #599](https://github.com/zscaler/terraform-provider-zia/pull/599) - Fixed rule ordering in the resource `zia_cloud_app_control_rule` when rules with different `type` values are applied in the same configuration. Cloud App Control rules are ordered independently per rule type; previously, when rules of more than one type were created concurrently, only one type was guaranteed to converge to the declared `order`, and rules of the other type(s) could be left in an arbitrary order. Each rule type is now reordered independently, so the final order in ZIA and in the Terraform state matches the configured `order` for every type.
+
+## v4.8.3 — July, 31 2026
 
 ### Enhancements
 
-- [PR #567](https://github.com/zscaler/terraform-provider-zia/pull/567) - Significantly reduced apply time and API call volume when creating, updating, or reordering large numbers of rules across all rule-based resources: `zia_ssl_inspection_rules`, `zia_url_filtering_rules`, `zia_firewall_filtering_rule`, `zia_firewall_dns_rules`, `zia_firewall_ips_rules`, `zia_cloud_app_control_rules`, `zia_dlp_web_rules`, `zia_forwarding_control_rule`, `zia_nat_control_rules`, `zia_sandbox_rules`, `zia_bandwidth_control_rules`, `zia_traffic_capture_rules`, `zia_file_type_control_rules`, `zia_casb_dlp_rules`, `zia_casb_malware_rules`. Also resolved the `INVALID_INPUT_ARGUMENT: Rule is not allowed at order N` errors that could occur when bulk-creating rules in parallel ([SUP-3988](https://help.zscaler.com/)). Bumped the underlying Zscaler Go SDK to v3.8.33 for related rate-limit and cache-invalidation fixes.
-
-## v4.7.19 — May, 1 2026
-
-### Enhancements
-
-- [PR #564](https://github.com/zscaler/terraform-provider-zia/pull/564) - Added support for looking up users by `email` in the `zia_user_management` data source. The lookup matches the `email` field exactly and case-insensitively against the API result set.
-- [PR #564](https://github.com/zscaler/terraform-provider-zia/pull/564) - Fixed `search` (JMESPath) interaction with `name`/`email` lookups in `zia_user_management`. When `search` is set, the provider now bypasses the API-side `name=<lookup>` query parameter so the JMESPath expression is applied against the full user population, rather than a slice already narrowed by the lookup value. Improved the "user not found" error message to surface the active `search` expression and the resulting candidate-pool size when a JMESPath filter is in effect, making misconfigured expressions (e.g. referencing `department.email` instead of `department.name`) easier to diagnose.
-
-### Important Note - New Feature
-
-- [API Session Timeout](https://help.zscaler.com/zia/release-upgrade-summary-2026#:~:text=Feature%20Available-,API%20Session%20Timeout,-When%20configuring%20advanced) - A new field, `api_session_timeout`, is available for the AdvancedSettings model in the /advancedSettings APIs. This configuration allows you to specify how long API-initiated sessions can be inactive before they are forced to reauthenticate. The timeout duration can range from 5 to 20 minutes. The attribute `api_session_timeout` is available via the resource `zia_advanced_settings`
+- [PR #594](https://github.com/zscaler/terraform-provider-zia/pull/594) - Added new Data source `zia_ips_categories` to retrive built-in IPS Categories. This resource can then be used within the following resources: `zia_firewall_dns_rule` and `zia_firewall_ips_rule` to fullfil the attributes: `res_categories` and `dest_ip_categories`
